@@ -1,0 +1,58 @@
+name: Upload Static Assets to R2
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'static/**'
+  workflow_dispatch:
+
+jobs:
+  upload-assets:
+    name: Upload and Purge Cache
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: |
+          npm install -g wrangler
+          npm install -g mime-types crypto
+
+      - name: Generate asset manifest with content hashes
+        id: manifest
+        run: |
+          node scripts/generate-asset-manifest.js > asset-manifest.json
+          cat asset-manifest.json
+
+      - name: Upload to R2
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+        run: |
+          node scripts/upload-to-r2.js
+
+      - name: Purge Cloudflare Cache
+        env:
+          CLOUDFLARE_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          curl -X POST "https://api.cloudflare.com/client/v4/zones/${CLOUDFLARE_ZONE_ID}/purge_cache" \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --data '{"purge_everything":true}'
+
+      - name: Upload manifest as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: asset-manifest
+          path: asset-manifest.json
+          retention-days: 30

@@ -1,0 +1,17 @@
+{
+  "name": "cdn-worker",
+  "version": "1.0.0",
+  "description": "Cloudflare Worker for CDN with R2 and imgproxy integration",
+  "main": "cdn-worker.js",
+  "scripts": {
+    "deploy": "wrangler publish",
+    "dev": "wrangler dev",
+    "test": "wrangler dev --local"
+  },
+  "keywords": ["cloudflare", "worker", "cdn", "r2", "imgproxy"],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "wrangler": "^3.0.0"
+  }
+}

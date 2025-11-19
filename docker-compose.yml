@@ -1,0 +1,165 @@
+version: '3.8'
+
+services:
+  # Traefik API Gateway
+  traefik:
+    image: traefik:v2.10
+    container_name: cdn-traefik
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080" # Dashboard (disable in prod)
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./traefik/dynamic:/etc/traefik/dynamic:ro
+      - ./traefik/certs:/certs
+      - traefik-acme:/acme
+    networks:
+      - cdn-network
+    environment:
+      - CLOUDFLARE_EMAIL=${CLOUDFLARE_EMAIL}
+      - CLOUDFLARE_API_KEY=${CLOUDFLARE_API_KEY}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dashboard.rule=Host(`traefik.mikeodnis.dev`)"
+      - "traefik.http.routers.dashboard.service=api@internal"
+      - "traefik.http.routers.dashboard.middlewares=auth"
+      - "traefik.http.middlewares.auth.basicauth.users=${TRAEFIK_DASHBOARD_AUTH}"
+
+  # Go Media Service (CDN origin with ETag, Range, Signed URLs)
+  go-media:
+    build:
+      context: ./services/go-media
+      dockerfile: Dockerfile
+    container_name: cdn-go-media
+    restart: unless-stopped
+    environment:
+      - PORT=8080
+      - R2_ACCOUNT_ID=${R2_ACCOUNT_ID}
+      - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID}
+      - R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY}
+      - R2_BUCKET_NAME=${R2_BUCKET_NAME}
+      - R2_ENDPOINT=${R2_ENDPOINT}
+      - SIGNING_SECRET=${SIGNING_SECRET}
+      - CLOUDFLARE_ZONE_ID=${CLOUDFLARE_ZONE_ID}
+      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
+    networks:
+      - cdn-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.go-media.rule=Host(`api.mikeodnis.dev`) && PathPrefix(`/v1/media`)"
+      - "traefik.http.routers.go-media.entrypoints=websecure"
+      - "traefik.http.routers.go-media.tls=true"
+      - "traefik.http.routers.go-media.tls.certresolver=cloudflare"
+      - "traefik.http.services.go-media.loadbalancer.server.port=8080"
+      - "traefik.http.routers.go-media.middlewares=cors,compression,security"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Node Core Service
+  node-core:
+    build:
+      context: ./services/node-core
+      dockerfile: Dockerfile
+    container_name: cdn-node-core
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DATABASE_URL=${DATABASE_URL}
+    networks:
+      - cdn-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.node-core.rule=Host(`api.mikeodnis.dev`) && PathPrefix(`/v1/core`)"
+      - "traefik.http.routers.node-core.entrypoints=websecure"
+      - "traefik.http.routers.node-core.tls=true"
+      - "traefik.http.routers.node-core.tls.certresolver=cloudflare"
+      - "traefik.http.services.node-core.loadbalancer.server.port=3000"
+      - "traefik.http.routers.node-core.middlewares=cors,compression,security"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Hasura GraphQL Engine
+  hasura:
+    image: hasura/graphql-engine:v2.36.0
+    container_name: cdn-hasura
+    restart: unless-stopped
+    environment:
+      HASURA_GRAPHQL_DATABASE_URL: ${HASURA_DATABASE_URL}
+      HASURA_GRAPHQL_ENABLE_CONSOLE: "false" # Disable in production
+      HASURA_GRAPHQL_ADMIN_SECRET: ${HASURA_ADMIN_SECRET}
+      HASURA_GRAPHQL_JWT_SECRET: ${HASURA_JWT_SECRET}
+      HASURA_GRAPHQL_UNAUTHORIZED_ROLE: anonymous
+      HASURA_GRAPHQL_CORS_DOMAIN: "https://mikeodnis.dev,https://blog.mikeodnis.dev,https://news.mikeodnis.dev,https://links.mikeodnis.dev"
+      HASURA_GRAPHQL_ENABLE_ALLOWLIST: "true"
+      HASURA_GRAPHQL_DEV_MODE: "false"
+      HASURA_GRAPHQL_ENABLED_LOG_TYPES: startup,http-log,webhook-log,websocket-log
+      HASURA_GRAPHQL_LOG_LEVEL: warn
+    networks:
+      - cdn-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.hasura.rule=Host(`api.mikeodnis.dev`) && PathPrefix(`/v1/links/graphql`)"
+      - "traefik.http.routers.hasura.entrypoints=websecure"
+      - "traefik.http.routers.hasura.tls=true"
+      - "traefik.http.routers.hasura.tls.certresolver=cloudflare"
+      - "traefik.http.services.hasura.loadbalancer.server.port=8080"
+      - "traefik.http.routers.hasura.middlewares=cors,compression,security"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # imgproxy for on-the-fly image transformation
+  imgproxy:
+    image: darthsim/imgproxy:v3.21
+    container_name: cdn-imgproxy
+    restart: unless-stopped
+    environment:
+      - IMGPROXY_KEY=${IMGPROXY_KEY}
+      - IMGPROXY_SALT=${IMGPROXY_SALT}
+      - IMGPROXY_USE_S3=true
+      - IMGPROXY_S3_ENDPOINT=${R2_ENDPOINT}
+      - IMGPROXY_S3_REGION=auto
+      - AWS_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY}
+      - IMGPROXY_ENABLE_WEBP_DETECTION=true
+      - IMGPROXY_ENFORCE_WEBP=true
+      - IMGPROXY_QUALITY=85
+      - IMGPROXY_GZIP_COMPRESSION=6
+      - IMGPROXY_MAX_SRC_FILE_SIZE=52428800 # 50MB
+      - IMGPROXY_ALLOWED_SOURCES=s3://${R2_BUCKET_NAME}
+      - IMGPROXY_CACHE_CONTROL_PASSTHROUGH=true
+    networks:
+      - cdn-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.imgproxy.rule=Host(`cdn.mikeodnis.dev`) && PathPrefix(`/img`)"
+      - "traefik.http.routers.imgproxy.entrypoints=websecure"
+      - "traefik.http.routers.imgproxy.tls=true"
+      - "traefik.http.routers.imgproxy.tls.certresolver=cloudflare"
+      - "traefik.http.services.imgproxy.loadbalancer.server.port=8080"
+      - "traefik.http.routers.imgproxy.middlewares=imgproxy-strip,compression,security"
+      - "traefik.http.middlewares.imgproxy-strip.stripprefix.prefixes=/img"
+    healthcheck:
+      test: ["CMD", "imgproxy", "health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  cdn-network:
+    driver: bridge
+
+volumes:
+  traefik-acme:

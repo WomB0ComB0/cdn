@@ -1,0 +1,307 @@
+# OpenAPI Specification for CDN API
+
+openapi: 3.0.3
+info:
+  title: CDN Media API
+  description: API for managing assets on Cloudflare R2 CDN
+  version: 1.0.0
+  contact:
+    name: API Support
+    url: https://mikeodnis.dev
+
+servers:
+  - url: https://api.mikeodnis.dev/v1/media
+    description: Production server
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      description: Check if the service is healthy
+      operationId: healthCheck
+      tags:
+        - System
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: healthy
+
+  /upload:
+    post:
+      summary: Upload file
+      description: Upload a file to R2 storage
+      operationId: uploadFile
+      tags:
+        - Assets
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+              required:
+                - file
+      responses:
+        '200':
+          description: File uploaded successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /sign:
+    post:
+      summary: Generate signed URL
+      description: Generate a signed URL for private asset access
+      operationId: generateSignedURL
+      tags:
+        - Security
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignedURLRequest'
+      responses:
+        '200':
+          description: Signed URL generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignedURLResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /assets/{path}:
+    get:
+      summary: Get asset
+      description: Retrieve a public asset with ETag and Range support
+      operationId: getAsset
+      tags:
+        - Assets
+      parameters:
+        - name: path
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Asset path
+        - name: If-None-Match
+          in: header
+          schema:
+            type: string
+          description: ETag for conditional requests
+        - name: Range
+          in: header
+          schema:
+            type: string
+          description: Byte range for partial content
+      responses:
+        '200':
+          description: Asset content
+          headers:
+            ETag:
+              schema:
+                type: string
+            Cache-Control:
+              schema:
+                type: string
+            Content-Type:
+              schema:
+                type: string
+        '206':
+          description: Partial content
+        '304':
+          description: Not modified
+        '404':
+          description: Asset not found
+
+  /list:
+    get:
+      summary: List assets
+      description: List assets in R2 bucket
+      operationId: listAssets
+      tags:
+        - Assets
+      parameters:
+        - name: prefix
+          in: query
+          schema:
+            type: string
+          description: Filter by prefix
+      responses:
+        '200':
+          description: List of assets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AssetInfo'
+
+  /delete/{path}:
+    delete:
+      summary: Delete asset
+      description: Delete an asset from R2
+      operationId: deleteAsset
+      tags:
+        - Assets
+      parameters:
+        - name: path
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Asset deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: deleted
+
+  /purge:
+    post:
+      summary: Purge cache
+      description: Purge Cloudflare cache for specific files
+      operationId: purgeCache
+      tags:
+        - Cache
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                files:
+                  type: array
+                  items:
+                    type: string
+                  example:
+                    - https://cdn.mikeodnis.dev/assets/file.jpg
+      responses:
+        '200':
+          description: Cache purged
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: purged
+
+components:
+  schemas:
+    UploadResponse:
+      type: object
+      properties:
+        url:
+          type: string
+          example: https://cdn.mikeodnis.dev/assets/abc123.jpg
+        key:
+          type: string
+          example: assets/abc123.jpg
+        etag:
+          type: string
+          example: '"d41d8cd98f00b204e9800998ecf8427e"'
+
+    SignedURLRequest:
+      type: object
+      required:
+        - path
+      properties:
+        path:
+          type: string
+          example: private/document.pdf
+        expires_in:
+          type: integer
+          format: int64
+          example: 3600
+          description: Expiration time in seconds (default 3600)
+
+    SignedURLResponse:
+      type: object
+      properties:
+        url:
+          type: string
+          example: https://cdn.mikeodnis.dev/v1/media/private/document.pdf?exp=1234567890&sig=...
+        expires_at:
+          type: string
+          format: date-time
+          example: '2024-01-01T12:00:00Z'
+
+    AssetInfo:
+      type: object
+      properties:
+        key:
+          type: string
+          example: assets/image.jpg
+        size:
+          type: integer
+          format: int64
+          example: 102400
+        last_modified:
+          type: string
+          format: date-time
+          example: '2024-01-01T10:00:00Z'
+        etag:
+          type: string
+          example: '"abc123"'
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: Invalid request
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+
+tags:
+  - name: System
+    description: System endpoints
+  - name: Assets
+    description: Asset management
+  - name: Security
+    description: Security and authentication
+  - name: Cache
+    description: Cache management

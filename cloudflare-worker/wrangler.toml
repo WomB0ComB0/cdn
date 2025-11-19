@@ -1,0 +1,28 @@
+name = "cdn-worker"
+main = "cdn-worker.js"
+compatibility_date = "2024-01-01"
+workers_dev = true
+
+# R2 bucket binding
+[[r2_buckets]]
+binding = "R2_BUCKET"
+bucket_name = "your-bucket-name"
+
+# Environment variables
+[vars]
+IMGPROXY_URL = "https://your-imgproxy-instance.com"
+
+# Secrets (set via: wrangler secret put SIGNING_SECRET)
+# SIGNING_SECRET = "your-signing-secret"
+
+# Routes
+routes = [
+  { pattern = "cdn.mikeodnis.dev/*", zone_name = "mikeodnis.dev" }
+]
+
+# Custom domain
+# [env.production]
+# name = "cdn-worker-production"
+# routes = [
+#   { pattern = "cdn.mikeodnis.dev/*", zone_name = "mikeodnis.dev" }
+# ]

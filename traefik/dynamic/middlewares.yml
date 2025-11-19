@@ -1,0 +1,86 @@
+http:
+  middlewares:
+    # HSTS
+    hsts:
+      headers:
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        stsPreload: true
+        forceSTSHeader: true
+
+    # CORS
+    cors:
+      headers:
+        accessControlAllowMethods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - PATCH
+          - OPTIONS
+        accessControlAllowOriginList:
+          - https://mikeodnis.dev
+          - https://blog.mikeodnis.dev
+          - https://news.mikeodnis.dev
+          - https://links.mikeodnis.dev
+        accessControlAllowHeaders:
+          - "*"
+        accessControlExposeHeaders:
+          - "*"
+        accessControlAllowCredentials: true
+        accessControlMaxAge: 3600
+        addVaryHeader: true
+
+    # Compression
+    compression:
+      compress:
+        encodings:
+          - br
+          - gzip
+        minResponseBodyBytes: 1024
+
+    # Security Headers
+    security:
+      headers:
+        browserXssFilter: true
+        contentTypeNosniff: true
+        frameDeny: true
+        referrerPolicy: "strict-origin-when-cross-origin"
+        permissionsPolicy: "camera=(), microphone=(), geolocation=()"
+        customResponseHeaders:
+          X-Robots-Tag: "noindex,nofollow,nosnippet,noarchive,notranslate,noimageindex"
+          Server: ""
+        contentSecurityPolicy: >-
+          default-src 'self';
+          script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.mikeodnis.dev;
+          style-src 'self' 'unsafe-inline' https://cdn.mikeodnis.dev;
+          img-src 'self' data: https: blob: https://cdn.mikeodnis.dev;
+          font-src 'self' data: https://cdn.mikeodnis.dev;
+          connect-src 'self' https://api.mikeodnis.dev;
+          media-src 'self' https://cdn.mikeodnis.dev;
+          object-src 'none';
+          base-uri 'self';
+          form-action 'self';
+          frame-ancestors 'none';
+          upgrade-insecure-requests;
+
+    # Rate limiting (optional)
+    rate-limit:
+      rateLimit:
+        average: 100
+        burst: 200
+        period: 1m
+
+    # CDN Cache headers for immutable assets
+    cdn-cache-immutable:
+      headers:
+        customResponseHeaders:
+          Cache-Control: "public, max-age=31536000, immutable"
+          CDN-Cache-Control: "public, max-age=31536000"
+
+    # API Cache headers
+    api-cache:
+      headers:
+        customResponseHeaders:
+          Cache-Control: "public, max-age=60, must-revalidate"
+          CDN-Cache-Control: "public, max-age=300"
