@@ -41,15 +41,21 @@ func main() {
 	router.Use(middleware.Recovery)
 	router.Use(middleware.SecurityHeaders)
 
-	// Health check
+	// Rate limiting for uploads (10 requests per minute)
+	uploadRateLimiter := middleware.NewRateLimiter(10, 20)
+
+	// Health checks
 	router.HandleFunc("/health", handlers.HealthCheck).Methods("GET")
+	router.HandleFunc("/health/detailed", handlers.HealthCheckDetailed(r2Client)).Methods("GET")
 
 	// Media routes (under /v1/media)
 	api := router.PathPrefix("/v1/media").Subrouter()
 
-	// Upload endpoints
-	api.HandleFunc("/upload", mediaHandler.Upload).Methods("POST")
-	api.HandleFunc("/upload/multipart", mediaHandler.MultipartUpload).Methods("POST")
+	// Upload endpoints (with rate limiting)
+	uploadRouter := api.PathPrefix("/upload").Subrouter()
+	uploadRouter.Use(uploadRateLimiter.Middleware)
+	uploadRouter.HandleFunc("", mediaHandler.Upload).Methods("POST")
+	uploadRouter.HandleFunc("/multipart", mediaHandler.MultipartUpload).Methods("POST")
 
 	// Asset serving with ETag and Range support
 	api.HandleFunc("/assets/{path:.+}", mediaHandler.ServeAsset).Methods("GET", "HEAD")

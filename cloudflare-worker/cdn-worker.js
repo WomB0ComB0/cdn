@@ -25,6 +25,11 @@ async function handleRequest(request) {
   const url = new URL(request.url);
   const path = url.pathname;
 
+  // Handle CORS preflight
+  if (request.method === 'OPTIONS') {
+    return handleOptions();
+  }
+
   // Image transformation requests
   if (path.startsWith('/img/')) {
     return handleImageProxy(request, url);

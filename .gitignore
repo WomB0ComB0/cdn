@@ -1,6 +1,7 @@
 .env
 .env.local
 .env.*.local
+.env.production
 
 # Docker
 traefik/certs/acme.json
@@ -10,8 +11,12 @@ node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-package-lock.json
-yarn.lock
+
+# Go
+bin/
+*.out
+coverage.out
+*.test
 
 # Logs
 logs/

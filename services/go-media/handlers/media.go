@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -150,10 +151,13 @@ func (h *MediaHandler) Upload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse multipart form (32MB max)
+	// Parse multipart form (100MB max)
+	maxUploadSize := int64(100 << 20) // 100MB
+	r.Body = http.MaxBytesReader(w, r.Body, maxUploadSize)
+	
 	err := r.ParseMultipartForm(32 << 20)
 	if err != nil {
-		respondJSON(w, http.StatusBadRequest, ErrorResponse{Error: "Failed to parse form"})
+		respondJSON(w, http.StatusBadRequest, ErrorResponse{Error: "Failed to parse form or file too large"})
 		return
 	}
 
@@ -164,9 +168,34 @@ func (h *MediaHandler) Upload(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
+	// Validate file size
+	if header.Size > maxUploadSize {
+		respondJSON(w, http.StatusBadRequest, ErrorResponse{Error: "File too large (max 100MB)"})
+		return
+	}
+
+	// Validate file extension
+	ext := strings.ToLower(filepath.Ext(header.Filename))
+	allowedExts := map[string]bool{
+		".jpg": true, ".jpeg": true, ".png": true, ".gif": true, ".webp": true,
+		".pdf": true, ".svg": true, ".mp4": true, ".webm": true, ".mp3": true,
+		".zip": true, ".json": true, ".txt": true, ".csv": true,
+	}
+	if !allowedExts[ext] {
+		respondJSON(w, http.StatusBadRequest, ErrorResponse{Error: "File type not allowed"})
+		return
+	}
+
+	// Sanitize filename to prevent path traversal
+	filename := filepath.Base(header.Filename)
+	if strings.Contains(filename, "..") || strings.Contains(filename, "/") {
+		respondJSON(w, http.StatusBadRequest, ErrorResponse{Error: "Invalid filename"})
+		return
+	}
+
 	// Generate content hash for filename
 	hash := sha256.New()
-	fileBytes, err := io.ReadAll(file)
+	fileBytes, err := io.ReadAll(io.LimitReader(file, maxUploadSize))
 	if err != nil {
 		respondJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "Failed to read file"})
 		return
@@ -357,8 +386,43 @@ func (h *MediaHandler) validateSignature(path string, expires string, signature 
 }
 
 func (h *MediaHandler) purgeCloudflareCache(files []string) error {
-	// Implementation would call Cloudflare API
-	// Placeholder for now
+	zoneID := os.Getenv("CLOUDFLARE_ZONE_ID")
+	apiToken := os.Getenv("CLOUDFLARE_API_TOKEN")
+
+	if zoneID == "" || apiToken == "" {
+		return fmt.Errorf("cloudflare credentials not configured")
+	}
+
+	reqBody := map[string]interface{}{
+		"files": files,
+	}
+
+	jsonData, err := json.Marshal(reqBody)
+	if err != nil {
+		return fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	url := fmt.Sprintf("https://api.cloudflare.com/client/v4/zones/%s/purge_cache", zoneID)
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Authorization", "Bearer "+apiToken)
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to purge cache: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("cloudflare API error (status %d): %s", resp.StatusCode, string(body))
+	}
+
 	return nil
 }
 
