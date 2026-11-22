@@ -1,0 +1,33 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "cdn-worker",
+  "main": "cdn-worker.js",
+  "compatibility_date": "2026-01-01",
+  "workers_dev": true,
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  // R2 bucket binding (must match CLOUDFLARE_R2_BUCKET in api.mikeodnis.dev)
+  "r2_buckets": [
+    {
+      "binding": "R2_BUCKET",
+      "bucket_name": "mikeodnis-cdn"
+    }
+  ],
+  // Non-secret environment variables
+  "vars": {
+    "R2_BUCKET_NAME": "mikeodnis-cdn",
+    "IMGPROXY_URL": "https://img.mikeodnis.dev",
+    "CACHE_TTL_IMMUTABLE": "31536000",
+    "CACHE_TTL_PRIVATE": "3600"
+  },
+  // Secrets (set via: bunx wrangler secret put SIGNING_SECRET)
+  // Must match SIGNING_SECRET configured in api.mikeodnis.dev media-service
+  "routes": [
+    {
+      "pattern": "cdn.mikeodnis.dev/*",
+      "zone_name": "mikeodnis.dev"
+    }
+  ]
+}

@@ -1,17 +1,17 @@
 {
   "name": "cdn-worker",
   "version": "1.0.0",
-  "description": "Cloudflare Worker for CDN with R2 and imgproxy integration",
+  "type": "module",
+  "description": "Cloudflare Worker for cdn.mikeodnis.dev with R2, HMAC signed URLs, and imgproxy",
   "main": "cdn-worker.js",
   "scripts": {
-    "deploy": "wrangler publish",
+    "deploy": "wrangler deploy",
     "dev": "wrangler dev",
-    "test": "wrangler dev --local"
+    "test": "bun test"
   },
   "keywords": ["cloudflare", "worker", "cdn", "r2", "imgproxy"],
-  "author": "",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "devDependencies": {
-    "wrangler": "^3.0.0"
+    "wrangler": "^4.0.0"
   }
 }
