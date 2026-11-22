@@ -8,26 +8,21 @@
     "enabled": true,
     "head_sampling_rate": 1
   },
-  // R2 bucket binding (must match CLOUDFLARE_R2_BUCKET in api.mikeodnis.dev)
+  // R2 bucket binding (matches CLOUDFLARE_R2_BUCKET=cdn in api.mikeodnis.dev)
   "r2_buckets": [
     {
       "binding": "R2_BUCKET",
-      "bucket_name": "mikeodnis-cdn"
+      "bucket_name": "cdn"
     }
   ],
   // Non-secret environment variables
   "vars": {
-    "R2_BUCKET_NAME": "mikeodnis-cdn",
+    "R2_BUCKET_NAME": "cdn",
     "IMGPROXY_URL": "https://img.mikeodnis.dev",
     "CACHE_TTL_IMMUTABLE": "31536000",
     "CACHE_TTL_PRIVATE": "3600"
-  },
+  }
   // Secrets (set via: bunx wrangler secret put SIGNING_SECRET)
-  // Must match SIGNING_SECRET configured in api.mikeodnis.dev media-service
-  "routes": [
-    {
-      "pattern": "cdn.mikeodnis.dev/*",
-      "zone_name": "mikeodnis.dev"
-    }
-  ]
+  // Once mikeodnis.dev DNS zone is on Cloudflare, attach the custom domain:
+  // "routes": [{ "pattern": "cdn.mikeodnis.dev", "custom_domain": true }]
 }
