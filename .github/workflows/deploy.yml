@@ -24,7 +24,7 @@ jobs:
       name: production
       url: https://cdn.mikeodnis.dev
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: oven-sh/setup-bun@v2
         with:
