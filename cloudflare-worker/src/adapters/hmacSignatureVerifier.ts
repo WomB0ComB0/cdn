@@ -5,9 +5,28 @@ type SubtleWithTimingSafe = SubtleCrypto & {
   timingSafeEqual?: (a: ArrayBufferView | ArrayBuffer, b: ArrayBufferView | ArrayBuffer) => boolean;
 };
 
-export class HmacSignatureVerifier implements SignatureVerifierPort {
-  private readonly encoder = new TextEncoder();
+const ENCODER = new TextEncoder();
 
+// Isolate-level cache avoids re-importing the same HMAC CryptoKey on every /private/* request
+let cachedSecret: string | null = null;
+let cachedKeyPromise: Promise<CryptoKey> | null = null;
+
+function getHmacKey(secret: string): Promise<CryptoKey> {
+  if (cachedSecret === secret && cachedKeyPromise) {
+    return cachedKeyPromise;
+  }
+  cachedSecret = secret;
+  cachedKeyPromise = crypto.subtle.importKey(
+    'raw',
+    ENCODER.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  return cachedKeyPromise;
+}
+
+export class HmacSignatureVerifier implements SignatureVerifierPort {
   constructor(private readonly secret: string) {}
 
   async verify(pathname: string, expiresRaw: string, signature: string): Promise<boolean> {
@@ -15,19 +34,12 @@ export class HmacSignatureVerifier implements SignatureVerifierPort {
       return false;
     }
 
-    const key = await crypto.subtle.importKey(
-      'raw',
-      this.encoder.encode(this.secret),
-      { name: 'HMAC', hash: 'SHA-256' },
-      false,
-      ['sign']
-    );
-
-    const mac = await crypto.subtle.sign('HMAC', key, this.encoder.encode(`${pathname}:${expiresRaw}`));
+    const key = await getHmacKey(this.secret);
+    const mac = await crypto.subtle.sign('HMAC', key, ENCODER.encode(`${pathname}:${expiresRaw}`));
     const expected = encodeBase64Url(new Uint8Array(mac));
 
-    const a = this.encoder.encode(expected);
-    const b = this.encoder.encode(signature);
+    const a = ENCODER.encode(expected);
+    const b = ENCODER.encode(signature);
     if (a.byteLength !== b.byteLength) {
       return false;
     }
