@@ -12,12 +12,13 @@ function extractRange(raw: R2Range | undefined): ByteRange | undefined {
 
 function toStoredObject(obj: R2Object | R2ObjectBody): StoredObject {
   const hasBody = 'body' in obj;
+  const range = extractRange(obj.range);
   return {
     size: obj.size,
     etag: obj.httpEtag,
     body: hasBody ? obj.body : null,
     hasBody,
-    range: extractRange(obj.range),
+    ...(range ? { range } : {}),
     writeHttpMetadata(headers: Headers): void {
       obj.writeHttpMetadata(headers);
     },

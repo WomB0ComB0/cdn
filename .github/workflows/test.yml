@@ -30,9 +30,10 @@ jobs:
         working-directory: ./cloudflare-worker
         run: bun install --frozen-lockfile
 
-      - name: Strict TypeScript typecheck
-        working-directory: ./cloudflare-worker
-        run: bun run typecheck
+      - name: Strict TypeScript typecheck (Worker + Scripts)
+        run: |
+          (cd cloudflare-worker && bun run typecheck)
+          (cd scripts && bun install --frozen-lockfile || bun install) && (cd scripts && bun run typecheck)
 
       - name: Run unit & Hexagonal boundary tests
         working-directory: ./cloudflare-worker

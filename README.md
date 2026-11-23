@@ -235,8 +235,9 @@ cdn/
 │   ├── tsconfig.json
 │   └── package.json
 ├── scripts/
-│   ├── generate-asset-manifest.js            # Content-hash manifest generator
-│   └── upload-to-r2.js                       # Bulk static R2 uploader
+│   ├── generate-asset-manifest.ts            # Content-hash manifest generator (strict TS)
+│   ├── upload-to-r2.ts                       # Bulk static R2 uploader (strict TS)
+│   └── tsconfig.json                         # Maximum-strict TypeScript config
 ├── docker-compose.yml                        # Optional local/self-hosted imgproxy
 ├── Makefile
 └── .env.example

@@ -49,7 +49,7 @@ export function createRouter(service: CdnService): (request: Request) => Promise
       if (err instanceof CdnError) {
         return new Response(err.message, {
           status: err.status,
-          headers: err.headers,
+          ...(err.headers ? { headers: err.headers } : {}),
         });
       }
       log.error('Unhandled CDN Worker error', err);

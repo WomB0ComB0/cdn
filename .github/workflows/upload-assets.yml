@@ -30,7 +30,7 @@ jobs:
 
       - name: Generate asset manifest with content hashes
         run: |
-          bun scripts/generate-asset-manifest.js > asset-manifest.json
+          bun scripts/generate-asset-manifest.ts > asset-manifest.json
           cat asset-manifest.json
 
       - name: Upload to R2
@@ -39,7 +39,7 @@ jobs:
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME || 'cdn' }}
-        run: bun scripts/upload-to-r2.js
+        run: bun scripts/upload-to-r2.ts
 
       - name: Purge Cloudflare Zone Cache (when Cloudflare DNS zone is configured)
         env:

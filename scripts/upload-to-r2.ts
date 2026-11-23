@@ -1,0 +1,72 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import mime from 'mime-types';
+import type { AssetManifest } from './generate-asset-manifest.js';
+
+function requireEnv(name: string, fallbackName?: string): string {
+  const value = process.env[name] || (fallbackName ? process.env[fallbackName] : undefined);
+  if (!value || value.trim() === '') {
+    throw new Error(`Missing required environment variable: ${name}`);
+  }
+  return value.trim();
+}
+
+const ACCOUNT_ID = requireEnv('R2_ACCOUNT_ID', 'CLOUDFLARE_ACCOUNT_ID');
+const ACCESS_KEY_ID = requireEnv('R2_ACCESS_KEY_ID');
+const SECRET_ACCESS_KEY = requireEnv('R2_SECRET_ACCESS_KEY');
+const BUCKET_NAME = requireEnv('R2_BUCKET_NAME');
+const ENDPOINT = `https://${ACCOUNT_ID}.r2.cloudflarestorage.com`;
+
+const STATIC_DIR = path.resolve(import.meta.dir, '..', 'static');
+const MANIFEST_FILE = path.resolve(import.meta.dir, '..', 'asset-manifest.json');
+
+const r2Client = new S3Client({
+  region: 'auto',
+  endpoint: ENDPOINT,
+  credentials: {
+    accessKeyId: ACCESS_KEY_ID,
+    secretAccessKey: SECRET_ACCESS_KEY,
+  },
+});
+
+async function uploadFile(localPath: string, remotePath: string, contentType: string): Promise<void> {
+  const fileContent = fs.readFileSync(localPath);
+
+  const command = new PutObjectCommand({
+    Bucket: BUCKET_NAME,
+    Key: remotePath,
+    Body: fileContent,
+    ContentType: contentType,
+    CacheControl: 'public, max-age=31536000, immutable',
+  });
+
+  try {
+    await r2Client.send(command);
+    console.log(`Uploaded: ${remotePath}`);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`Failed to upload ${remotePath}: ${message}`);
+    throw error;
+  }
+}
+
+async function main(): Promise<void> {
+  const manifest = JSON.parse(fs.readFileSync(MANIFEST_FILE, 'utf-8')) as AssetManifest;
+
+  for (const [original, info] of Object.entries(manifest)) {
+    const localPath = path.join(STATIC_DIR, original);
+    const remotePath = `assets/${info.hashed}`;
+    const detected = mime.lookup(original);
+    const contentType = typeof detected === 'string' ? detected : 'application/octet-stream';
+
+    await uploadFile(localPath, remotePath, contentType);
+  }
+
+  console.log('\nAll assets uploaded successfully.');
+}
+
+main().catch((error: unknown) => {
+  console.error('Upload failed:', error);
+  process.exit(1);
+});
