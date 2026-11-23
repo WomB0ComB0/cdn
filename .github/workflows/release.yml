@@ -1,0 +1,221 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'SemVer release tag (e.g. v2.0.0 or v2.0.0-rc.1)'
+        required: true
+        type: string
+      prerelease:
+        description: 'Mark GitHub Release as prerelease (auto-detected if tag contains "-")'
+        required: false
+        type: boolean
+        default: false
+      deploy_production:
+        description: 'Deploy Worker to Cloudflare production on stable release'
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-cdn
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Validate SemVer Release Tag
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+      version: ${{ steps.meta.outputs.version }}
+      is_prerelease: ${{ steps.meta.outputs.is_prerelease }}
+    steps:
+      - name: Resolve and validate SemVer tag
+        id: meta
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          INPUT_TAG: ${{ inputs.tag }}
+          INPUT_PRERELEASE: ${{ inputs.prerelease }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "push" ]; then
+            TAG="$REF_NAME"
+          else
+            TAG="$INPUT_TAG"
+          fi
+
+          if ! [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Invalid SemVer tag '$TAG'. Expected vMAJOR.MINOR.PATCH (optional -prerelease)."
+            exit 1
+          fi
+
+          VERSION="${TAG#v}"
+          IS_PRERELEASE="false"
+          if [ "$INPUT_PRERELEASE" = "true" ] || [[ "$TAG" == *-* ]]; then
+            IS_PRERELEASE="true"
+          fi
+
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "is_prerelease=$IS_PRERELEASE" >> "$GITHUB_OUTPUT"
+
+  verify-and-bundle:
+    name: Strict Typecheck, Test, Audit & Bundle Worker
+    needs: [prepare]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies (Worker + Scripts)
+        run: |
+          (cd cloudflare-worker && bun install --frozen-lockfile)
+          (cd scripts && bun install --frozen-lockfile)
+
+      - name: Strict TypeScript typecheck, tests & dependency audit
+        run: |
+          (cd cloudflare-worker && bun run typecheck && bun test && bun audit --audit-level=high)
+          (cd scripts && bun run typecheck && bun audit --audit-level=high)
+
+      - name: Validate optional imgproxy Compose config
+        run: docker compose --env-file .env.example config -q
+
+      - name: Build reproducible Cloudflare Worker bundle & checksums
+        env:
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+          (cd cloudflare-worker && bunx wrangler deploy --dry-run --outdir dist)
+          tar -czf "release-assets/cdn-worker-${TAG}.tar.gz" -C cloudflare-worker/dist .
+          (cd release-assets && sha256sum "cdn-worker-${TAG}.tar.gz" > SHA256SUMS.txt)
+          cat release-assets/SHA256SUMS.txt
+
+      - name: Upload release assets artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-assets
+          path: release-assets/
+          retention-days: 7
+
+  deploy-production:
+    name: Deploy Release to Cloudflare Workers Production
+    needs: [prepare, verify-and-bundle]
+    if: |
+      needs.prepare.outputs.is_prerelease != 'true' &&
+      (github.event_name == 'push' || inputs.deploy_production == true)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: production
+      url: https://cdn.mikeodnis.dev
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install Worker dependencies
+        working-directory: ./cloudflare-worker
+        run: bun install --frozen-lockfile
+
+      - name: Deploy Worker to Cloudflare
+        working-directory: ./cloudflare-worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::notice::Skipping Cloudflare deploy (CLOUDFLARE_API_TOKEN secret is not configured)."
+            exit 0
+          fi
+          bunx wrangler deploy
+
+      - name: Post-deploy live smoke verification
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            exit 0
+          fi
+          sleep 3
+          curl -fsS https://cdn.mikeodnis.dev/health | grep -q '"healthy"'
+          PRIV_STATUS=$(curl -sS -o /dev/null -w "%{http_code}" https://cdn.mikeodnis.dev/private/release-probe/test.png)
+          if [ "$PRIV_STATUS" != "403" ]; then
+            echo "Expected 403 for unsigned private path, got $PRIV_STATUS"
+            exit 1
+          fi
+          HEADERS=$(curl -sS -D - -o /dev/null https://cdn.mikeodnis.dev/health)
+          echo "$HEADERS" | grep -qi "strict-transport-security:"
+          echo "$HEADERS" | grep -qi "x-content-type-options: nosniff"
+
+  github-release:
+    name: Create GitHub Release
+    needs: [prepare, verify-and-bundle, deploy-production]
+    if: |
+      always() &&
+      !contains(needs.*.result, 'failure') &&
+      !contains(needs.*.result, 'cancelled')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Download packaged release assets
+        uses: actions/download-artifact@v8
+        with:
+          name: release-assets
+          path: release-assets
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          IS_PRERELEASE: ${{ needs.prepare.outputs.is_prerelease }}
+        run: |
+          set -euo pipefail
+
+          cat <<EOF > release-notes-footer.md
+
+          ### Verification Checksums (SHA-256)
+          \`\`\`
+          $(cat release-assets/SHA256SUMS.txt)
+          \`\`\`
+          EOF
+
+          PRERELEASE_FLAG=()
+          if [ "$IS_PRERELEASE" = "true" ]; then
+            PRERELEASE_FLAG=(--prerelease)
+          fi
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" \
+              "release-assets/cdn-worker-${TAG}.tar.gz" \
+              "release-assets/SHA256SUMS.txt" \
+              --clobber
+          else
+            gh release create "$TAG" \
+              "release-assets/cdn-worker-${TAG}.tar.gz" \
+              "release-assets/SHA256SUMS.txt" \
+              --target "$GITHUB_SHA" \
+              --title "CDN Edge Worker ${TAG}" \
+              --generate-notes \
+              --notes-file release-notes-footer.md \
+              "${PRERELEASE_FLAG[@]}"
+          fi

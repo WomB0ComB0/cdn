@@ -33,7 +33,7 @@ jobs:
       - name: Strict TypeScript typecheck (Worker + Scripts)
         run: |
           (cd cloudflare-worker && bun run typecheck)
-          (cd scripts && bun install --frozen-lockfile || bun install) && (cd scripts && bun run typecheck)
+          (cd scripts && bun install --frozen-lockfile && bun run typecheck)
 
       - name: Run unit & Hexagonal boundary tests
         working-directory: ./cloudflare-worker
@@ -61,11 +61,10 @@ jobs:
 
       - uses: oven-sh/setup-bun@v2
 
-      - name: Audit Worker dependencies
-        working-directory: ./cloudflare-worker
+      - name: Audit Worker & Scripts dependencies
         run: |
-          bun install --frozen-lockfile
-          bun audit --audit-level=high
+          (cd cloudflare-worker && bun install --frozen-lockfile && bun audit --audit-level=high)
+          (cd scripts && bun install --frozen-lockfile && bun audit --audit-level=high)
 
       - name: Ensure no .env or key files are committed
         run: |

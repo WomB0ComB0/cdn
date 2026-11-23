@@ -26,7 +26,7 @@ jobs:
 
       - name: Install script dependencies
         working-directory: ./scripts
-        run: bun install
+        run: bun install --frozen-lockfile
 
       - name: Generate asset manifest with content hashes
         run: |
