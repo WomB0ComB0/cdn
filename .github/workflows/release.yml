@@ -74,11 +74,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: latest
+          no-cache: true
 
       - name: Install dependencies (Worker + Scripts)
         run: |
@@ -105,7 +108,7 @@ jobs:
           cat release-assets/SHA256SUMS.txt
 
       - name: Upload release assets artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-assets
           path: release-assets/
@@ -123,11 +126,14 @@ jobs:
       name: production
       url: https://cdn.mikeodnis.dev
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: latest
+          no-cache: true
 
       - name: Install Worker dependencies
         working-directory: ./cloudflare-worker
@@ -175,10 +181,12 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Download packaged release assets
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: release-assets
           path: release-assets
@@ -191,8 +199,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          cat <<EOF > release-notes-footer.md
-
+          cat <<EOF > release-notes-header.md
           ### Verification Checksums (SHA-256)
           \`\`\`
           $(cat release-assets/SHA256SUMS.txt)
@@ -216,6 +223,6 @@ jobs:
               --target "$GITHUB_SHA" \
               --title "CDN Edge Worker ${TAG}" \
               --generate-notes \
-              --notes-file release-notes-footer.md \
+              --notes-file release-notes-header.md \
               "${PRERELEASE_FLAG[@]}"
           fi

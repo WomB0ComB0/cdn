@@ -5,6 +5,8 @@ updates:
     schedule:
       interval: "weekly"
       day: "monday"
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 5
     groups:
       worker-deps:
@@ -15,6 +17,8 @@ updates:
     schedule:
       interval: "weekly"
       day: "monday"
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 3
 
   - package-ecosystem: "github-actions"
@@ -22,4 +26,6 @@ updates:
     schedule:
       interval: "weekly"
       day: "monday"
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 5
