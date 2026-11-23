@@ -107,6 +107,7 @@ describe('cdn-worker hexagonal architecture (cdn.mikeodnis.dev)', () => {
     );
     expect(res.status).toBe(200);
     expect(res.headers.get('Cache-Control')).toContain('immutable');
+    expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
     expect(res.headers.get('Content-Type')).toBe('image/png');
     expect(res.headers.get('ETag')).toBe('"etag-abc"');
     expect(await res.text()).toBe('png-bytes');
@@ -200,5 +201,27 @@ describe('cdn-worker hexagonal architecture (cdn.mikeodnis.dev)', () => {
       ctx
     );
     expect(res403.status).toBe(403);
+  });
+
+  test('sandboxes SVG uploads with strict CSP to prevent Stored XSS', async () => {
+    (globalThis as unknown as { caches: { default: Cache } }).caches = {
+      default: createMockCache(),
+    };
+    const env = createMockEnv({
+      'assets/user-1/icon.svg': {
+        body: '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>',
+        contentType: 'image/svg+xml',
+      },
+    });
+    const ctx = { waitUntil() {} } as unknown as ExecutionContext;
+
+    const res = await worker.fetch(
+      new Request('https://cdn.mikeodnis.dev/assets/user-1/icon.svg'),
+      env,
+      ctx
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
+    expect(res.headers.get('Content-Security-Policy')).toBe("default-src 'none'; sandbox");
   });
 });

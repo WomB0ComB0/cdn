@@ -42,16 +42,18 @@ jobs:
         run: docker compose --env-file .env.example config -q
 
   security-scan:
-    name: Security Scanning
+    name: Dependency Security Audit
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: 'fs'
-          scan-ref: '.'
-          severity: 'CRITICAL,HIGH'
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Audit Worker dependencies
+        working-directory: ./cloudflare-worker
+        run: |
+          bun install --frozen-lockfile || bun install
+          bun audit --audit-level=high

@@ -147,6 +147,7 @@ export class CdnService {
     const ttl = this.deps.config.cacheTtlImmutable;
     headers.set('Cache-Control', `public, max-age=${ttl}, immutable`);
     headers.set('CDN-Cache-Control', `public, max-age=${ttl}`);
+    applySecurityHeaders(headers);
     applyCorsHeaders(headers);
 
     const response = new Response(method === 'HEAD' ? null : upstream.body, {
@@ -175,6 +176,7 @@ export class CdnService {
     if (cache.cdnCacheControl) {
       headers.set('CDN-Cache-Control', cache.cdnCacheControl);
     }
+    applySecurityHeaders(headers);
     applyCorsHeaders(headers);
 
     if (method === 'GET' && !object.hasBody) {
@@ -193,6 +195,15 @@ export class CdnService {
 
     const body = method === 'HEAD' ? null : (object.body as BodyInit | null);
     return new Response(body, { status, headers });
+  }
+}
+
+export function applySecurityHeaders(headers: Headers): void {
+  headers.set('X-Content-Type-Options', 'nosniff');
+  const contentType = (headers.get('Content-Type') || '').toLowerCase();
+  if (contentType.includes('svg') || contentType.includes('html') || contentType.includes('xml')) {
+    // Prevent Stored XSS when rendering user-uploaded SVGs/XML directly on the CDN origin
+    headers.set('Content-Security-Policy', "default-src 'none'; sandbox");
   }
 }
 
