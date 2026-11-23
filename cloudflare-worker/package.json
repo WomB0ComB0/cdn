@@ -1,17 +1,21 @@
 {
   "name": "cdn-worker",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "type": "module",
-  "description": "Cloudflare Worker for cdn.mikeodnis.dev with R2, HMAC signed URLs, and imgproxy",
-  "main": "cdn-worker.js",
+  "description": "Cloudflare Worker for cdn.mikeodnis.dev — Hexagonal TypeScript architecture with R2, HMAC signed URLs, and imgproxy",
+  "main": "src/index.ts",
   "scripts": {
     "deploy": "wrangler deploy",
     "dev": "wrangler dev",
+    "typecheck": "tsc --noEmit",
     "test": "bun test"
   },
-  "keywords": ["cloudflare", "worker", "cdn", "r2", "imgproxy"],
+  "keywords": ["cloudflare", "worker", "cdn", "r2", "imgproxy", "hexagonal"],
   "license": "Apache-2.0",
   "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260101.0",
+    "@types/bun": "^1.4.5",
+    "typescript": "^5.7.2",
     "wrangler": "^4.0.0"
   }
 }

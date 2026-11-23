@@ -44,3 +44,4 @@ asset-manifest.json
 # Build artifacts
 dist/
 build/
+.wrangler/

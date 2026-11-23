@@ -1,7 +1,7 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "cdn-worker",
-  "main": "cdn-worker.js",
+  "main": "src/index.ts",
   "compatibility_date": "2026-01-01",
   "workers_dev": true,
   "observability": {
