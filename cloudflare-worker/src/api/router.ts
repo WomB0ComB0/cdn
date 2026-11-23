@@ -1,5 +1,12 @@
+import { LogLevel, Logger } from '@resq-systems/logger';
 import { applyCorsHeaders, type CdnService } from '../application/cdnService.js';
 import { AssetPath, CdnError, type HttpMethod } from '../domain/asset.js';
+
+const log = Logger.getLogger('[cdn-worker]', {
+  minLevel: LogLevel.WARN,
+  includeTimestamp: false,
+  colorize: false,
+});
 
 export function createRouter(service: CdnService): (request: Request) => Promise<Response> {
   return async function handleRequest(request: Request): Promise<Response> {
@@ -45,9 +52,7 @@ export function createRouter(service: CdnService): (request: Request) => Promise
           headers: err.headers,
         });
       }
-      console.error('Unhandled CDN Worker error', {
-        message: err instanceof Error ? err.message : String(err),
-      });
+      log.error('Unhandled CDN Worker error', err);
       return new Response('Internal Server Error', { status: 500 });
     }
   };

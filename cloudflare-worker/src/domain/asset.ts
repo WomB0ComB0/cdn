@@ -1,4 +1,15 @@
+import {
+  type Brand,
+  isFiniteNumber,
+  isInRange,
+  isNonEmptyString,
+  unsafeBrand,
+} from '@resq-systems/types';
+
 export type HttpMethod = 'GET' | 'HEAD';
+export type ObjectKey = Brand<string, 'ObjectKey'>;
+export type Pathname = Brand<string, 'Pathname'>;
+export type UnixSeconds = Brand<number, 'UnixSeconds'>;
 
 export class CdnError extends Error {
   constructor(
@@ -13,8 +24,8 @@ export class CdnError extends Error {
 
 export class AssetPath {
   private constructor(
-    public readonly pathname: string,
-    public readonly objectKey: string
+    public readonly pathname: Pathname,
+    public readonly objectKey: ObjectKey
   ) {}
 
   static parse(rawPathname: string): AssetPath {
@@ -30,19 +41,22 @@ export class AssetPath {
     }
 
     const objectKey = decoded.startsWith('/') ? decoded.slice(1) : decoded;
-    if (!objectKey) {
+    if (!isNonEmptyString(objectKey)) {
       throw new CdnError(404, 'Not Found');
     }
 
-    return new AssetPath(rawPathname, objectKey);
+    return new AssetPath(
+      unsafeBrand<'Pathname', string>(rawPathname),
+      unsafeBrand<'ObjectKey', string>(objectKey)
+    );
   }
 }
 
 export interface SignedRequestParams {
-  readonly pathname: string;
-  readonly objectKey: string;
+  readonly pathname: Pathname;
+  readonly objectKey: ObjectKey;
   readonly expiresRaw: string;
-  readonly expiresUnix: number;
+  readonly expiresUnix: UnixSeconds;
   readonly signature: string;
 }
 
@@ -52,12 +66,12 @@ export function parseSignedRequest(
   expiresRaw: string | null,
   nowSeconds: number
 ): SignedRequestParams {
-  if (!signature || !expiresRaw) {
+  if (!isNonEmptyString(signature) || !isNonEmptyString(expiresRaw)) {
     throw new CdnError(403, 'Missing signature or expiration');
   }
 
   const expiresUnix = Number.parseInt(expiresRaw, 10);
-  if (!Number.isFinite(expiresUnix) || nowSeconds > expiresUnix) {
+  if (!isFiniteNumber(expiresUnix) || nowSeconds > expiresUnix) {
     throw new CdnError(403, 'Signature expired');
   }
 
@@ -65,7 +79,7 @@ export function parseSignedRequest(
     pathname: asset.pathname,
     objectKey: asset.objectKey,
     expiresRaw,
-    expiresUnix,
+    expiresUnix: unsafeBrand<'UnixSeconds', number>(expiresUnix),
     signature,
   };
 }
@@ -81,7 +95,7 @@ const ALLOWED_FORMATS: ReadonlySet<string> = new Set<ImageFormat>([
 ]);
 
 export interface ImageTransform {
-  readonly sourceKey: string;
+  readonly sourceKey: ObjectKey;
   readonly width: number;
   readonly height: number;
   readonly quality: number;
@@ -96,12 +110,12 @@ export function parseImageTransform(
     ? asset.objectKey.slice('img/'.length)
     : asset.objectKey;
 
-  if (!sourceKey || sourceKey.startsWith('private/')) {
+  if (!isNonEmptyString(sourceKey) || sourceKey.startsWith('private/')) {
     throw new CdnError(403, 'Forbidden');
   }
 
   return {
-    sourceKey,
+    sourceKey: unsafeBrand<'ObjectKey', string>(sourceKey),
     width: sanitizeDimension(query.width),
     height: sanitizeDimension(query.height),
     quality: sanitizeQuality(query.quality),
@@ -109,18 +123,19 @@ export function parseImageTransform(
   };
 }
 
+const isValidDimension = isInRange(0, 4096);
+const isValidQuality = isInRange(10, 100);
+
 export function sanitizeDimension(raw?: string | null): number {
-  if (!raw) return 0;
+  if (!isNonEmptyString(raw)) return 0;
   const n = Number.parseInt(raw, 10);
-  if (!Number.isFinite(n) || n < 0 || n > 4096) return 0;
-  return n;
+  return isValidDimension(n) ? n : 0;
 }
 
 export function sanitizeQuality(raw?: string | null): number {
-  if (!raw) return 85;
+  if (!isNonEmptyString(raw)) return 85;
   const n = Number.parseInt(raw, 10);
-  if (!Number.isFinite(n) || n < 10 || n > 100) return 85;
-  return n;
+  return isValidQuality(n) ? n : 85;
 }
 
 export function sanitizeFormat(raw?: string | null): ImageFormat {
