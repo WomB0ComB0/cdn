@@ -2,34 +2,70 @@ name: Deploy CDN Worker
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
     paths:
       - 'cloudflare-worker/**'
       - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-cdn-worker
+  cancel-in-progress: false
+
 jobs:
   deploy-cloudflare-worker:
-    name: Test & Deploy Cloudflare Worker
+    name: Test, Deploy & Smoke-Check CDN Worker
     runs-on: ubuntu-latest
-
+    timeout-minutes: 10
+    environment:
+      name: production
+      url: https://cdn.mikeodnis.dev
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
 
       - name: Install dependencies
         working-directory: ./cloudflare-worker
-        run: bun install --frozen-lockfile || bun install
+        run: bun install --frozen-lockfile
 
-      - name: Typecheck & Test
+      - name: Typecheck & test
         working-directory: ./cloudflare-worker
-        run: bun run typecheck && bun test
+        run: |
+          bun run typecheck
+          bun test
 
-      - name: Deploy Worker
+      - name: Deploy Cloudflare Worker
         working-directory: ./cloudflare-worker
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: bunx wrangler deploy
+
+      - name: Post-deploy live smoke check
+        run: |
+          set -euo pipefail
+          sleep 3
+          curl -fsS https://cdn.mikeodnis.dev/health | grep -q '"healthy"'
+
+          # Unsigned private request must always be rejected with 403
+          PRIV_STATUS=$(curl -sS -o /dev/null -w "%{http_code}" https://cdn.mikeodnis.dev/private/ci-probe/test.png)
+          if [ "$PRIV_STATUS" != "403" ]; then
+            echo "Expected 403 for unsigned private path, got $PRIV_STATUS"
+            exit 1
+          fi
+
+          HEADERS=$(curl -sS -D - -o /dev/null https://cdn.mikeodnis.dev/health)
+          echo "$HEADERS" | grep -qi "strict-transport-security:"
+          echo "$HEADERS" | grep -qi "x-content-type-options: nosniff"
+
+          {
+            echo "### Deployed \`cdn-worker\` to Production"
+            echo "- \`GET https://cdn.mikeodnis.dev/health\`: 200 OK"
+            echo "- \`GET https://cdn.mikeodnis.dev/private/...\`: 403 Forbidden (unsigned blocked)"
+            echo "- Security headers verified (\`HSTS\`, \`X-Content-Type-Options: nosniff\`)"
+          } >> "$GITHUB_STEP_SUMMARY"

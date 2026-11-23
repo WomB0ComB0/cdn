@@ -1,59 +1,83 @@
-name: Tests and Quality Checks
+name: CI & Security Checks
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cdn-ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  test-worker:
-    name: Typecheck, Unit & Architecture Tests
+  worker-ci:
+    name: Typecheck, Test & Bundle Dry-Run
     runs-on: ubuntu-latest
-
+    timeout-minutes: 10
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
 
       - name: Install dependencies
         working-directory: ./cloudflare-worker
-        run: bun install --frozen-lockfile || bun install
+        run: bun install --frozen-lockfile
 
-      - name: Typecheck
+      - name: Strict TypeScript typecheck
         working-directory: ./cloudflare-worker
         run: bun run typecheck
 
-      - name: Run tests (including Hexagonal boundary checks)
+      - name: Run unit & Hexagonal boundary tests
         working-directory: ./cloudflare-worker
         run: bun test
 
-  validate-compose:
-    name: Validate Docker Compose
+      - name: Verify Cloudflare Worker bundle (dry-run)
+        working-directory: ./cloudflare-worker
+        run: |
+          OUT=$(bunx wrangler deploy --dry-run 2>&1)
+          echo "$OUT"
+          SIZE=$(echo "$OUT" | grep -i "Total Upload:" || echo "Bundle verified")
+          {
+            echo "### CDN Worker CI"
+            echo "- Typecheck: passed"
+            echo "- Unit + Hexagonal boundary tests: passed"
+            echo "- $SIZE"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  security-audit:
+    name: Dependency & Secret Audit
     runs-on: ubuntu-latest
-
+    timeout-minutes: 10
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Validate Compose config
-        run: docker compose --env-file .env.example config -q
-
-  security-scan:
-    name: Dependency Security Audit
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@v2
 
       - name: Audit Worker dependencies
         working-directory: ./cloudflare-worker
         run: |
-          bun install --frozen-lockfile || bun install
+          bun install --frozen-lockfile
           bun audit --audit-level=high
+
+      - name: Ensure no .env or key files are committed
+        run: |
+          if git ls-files | grep -E '(^|/)\.env$|\.pem$|\.key$'; then
+            echo "::error::Sensitive file committed to git!"
+            exit 1
+          fi
+
+  validate-compose:
+    name: Validate imgproxy Compose Config
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Compose config
+        run: docker compose --env-file .env.example config -q
