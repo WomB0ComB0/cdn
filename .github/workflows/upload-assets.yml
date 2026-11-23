@@ -56,7 +56,7 @@ jobs:
             --data '{"purge_everything":true}'
 
       - name: Upload manifest as artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: asset-manifest
           path: asset-manifest.json
