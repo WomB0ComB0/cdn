@@ -210,5 +210,8 @@ export function applySecurityHeaders(headers: Headers): void {
 export function applyCorsHeaders(headers: Headers): void {
   headers.set('Access-Control-Allow-Origin', '*');
   headers.set('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
-  headers.set('Access-Control-Expose-Headers', 'ETag, Content-Length, Content-Range');
+  headers.set(
+    'Access-Control-Expose-Headers',
+    'ETag, Content-Length, Content-Range, RateLimit-Limit, RateLimit-Remaining, RateLimit-Reset, RateLimit-Policy, Retry-After'
+  );
 }

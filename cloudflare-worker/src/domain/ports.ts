@@ -1,4 +1,5 @@
 import type { ImageTransform } from './asset.js';
+import type { CdnRateLimitDecision, CdnRateLimitPolicy } from './rateLimit.js';
 
 export interface ByteRange {
   readonly offset: number;
@@ -51,4 +52,18 @@ export interface ImageProxyPort {
 
 export interface ClockPort {
   nowSeconds(): number;
+}
+
+export interface RateLimiterMetrics {
+  readonly evaluated: number;
+  readonly allowed: number;
+  readonly limited429: number;
+  readonly limitedByTier: Record<string, number>;
+  readonly bindingErrors: number;
+  readonly isolateFallbackHits: number;
+}
+
+export interface RateLimiterPort {
+  check(key: string, policy: CdnRateLimitPolicy): Promise<CdnRateLimitDecision>;
+  metrics(): RateLimiterMetrics;
 }

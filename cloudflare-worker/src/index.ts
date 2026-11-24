@@ -1,4 +1,9 @@
 import { CloudflareEdgeCache } from './adapters/cfEdgeCache.js';
+import {
+  type CfRateLimitBinding,
+  CloudflareRateLimiter,
+  IsolateSlidingWindowCounter,
+} from './adapters/cfRateLimiter.js';
 import { HmacSignatureVerifier } from './adapters/hmacSignatureVerifier.js';
 import { ImgproxyClient } from './adapters/imgproxyClient.js';
 import { R2ObjectStore } from './adapters/r2ObjectStore.js';
@@ -8,6 +13,9 @@ import { CdnService } from './application/cdnService.js';
 const DEFAULT_CACHE_TTL_IMMUTABLE = 31536000; // 1 year
 const DEFAULT_CACHE_TTL_PRIVATE = 3600; // 1 hour
 
+// Primitive-only bounded fallback counter for local dev / transient binding errors
+const isolateFallbackCounter = new IsolateSlidingWindowCounter(4096);
+
 export interface WorkerEnv {
   R2_BUCKET: R2Bucket;
   R2_BUCKET_NAME?: string;
@@ -15,6 +23,9 @@ export interface WorkerEnv {
   IMGPROXY_URL?: string;
   CACHE_TTL_IMMUTABLE?: string;
   CACHE_TTL_PRIVATE?: string;
+  RATE_LIMIT_ASSETS?: CfRateLimitBinding;
+  RATE_LIMIT_IMG?: CfRateLimitBinding;
+  RATE_LIMIT_PRIVATE?: CfRateLimitBinding;
 }
 
 export default {
@@ -32,6 +43,15 @@ export default {
       },
     });
 
-    return createRouter(service)(request);
+    const rateLimiter = new CloudflareRateLimiter(
+      {
+        assets: env.RATE_LIMIT_ASSETS,
+        img: env.RATE_LIMIT_IMG,
+        private: env.RATE_LIMIT_PRIVATE,
+      },
+      isolateFallbackCounter
+    );
+
+    return createRouter(service, { rateLimiter })(request);
   },
 };
