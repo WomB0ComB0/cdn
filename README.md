@@ -1,6 +1,10 @@
 # Edge CDN — `cdn.mikeodnis.dev`
 
-Production Edge CDN for `mikeodnis.dev` powered by **Cloudflare Workers** + **Cloudflare R2**, architected with **Hexagonal Architecture (Ports & Adapters)** in strict TypeScript (`~8.7 KiB` gzipped), using [`@resq-systems/types`](https://github.com/resq-software/npm) & [`@resq-systems/logger`](https://github.com/resq-software/npm), and paired with the backend control plane [`WomB0ComB0/api`](https://github.com/WomB0ComB0/api) (`api.mikeodnis.dev`).
+[![CI](https://img.shields.io/github/actions/workflow/status/WomB0ComB0/cdn/test.yml?branch=main&label=CI)](https://github.com/WomB0ComB0/cdn/actions/workflows/test.yml)
+[![Release](https://img.shields.io/github/v/release/WomB0ComB0/cdn)](https://github.com/WomB0ComB0/cdn/releases)
+[![License](https://img.shields.io/github/license/WomB0ComB0/cdn)](LICENSE)
+
+Production Edge CDN for `mikeodnis.dev` powered by **Cloudflare Workers** + **Cloudflare R2**, architected with **Hexagonal Architecture (Ports & Adapters)** in strict TypeScript (`~10.6 KiB` gzipped), using [`@resq-systems/types`](https://github.com/resq-software/npm) & [`@resq-systems/logger`](https://github.com/resq-software/npm), native **Cloudflare Edge Rate Limiting bindings** + weighted sliding-window isolate fallback, Workers Logs & Traces observability, and paired with [`WomB0ComB0/api`](https://github.com/WomB0ComB0/api) (`api.mikeodnis.dev`).
 
 > **Single Source of Truth**: Core Auth (`core-service`), Go Hexagonal Media uploads & HMAC signing (`media-service`), Hasura GraphQL, and the Caddy TLS/routing gateway (`gateway`) live in [`WomB0ComB0/api`](https://github.com/WomB0ComB0/api). This repository is focused exclusively on the **Edge CDN Worker**, R2 static asset scripts, and the optional `imgproxy` transform container.
 
@@ -18,7 +22,7 @@ flowchart LR
     end
 
     subgraph Edge["Cloudflare Edge (WomB0ComB0/cdn)"]
-        Worker["cdn-worker\nHexagonal TS Worker (8.7 KiB gzip)"]
+        Worker["cdn-worker\nHexagonal TS Worker (10.6 KiB gzip)\nNative Edge RateLimit Bindings"]
         Cache["Cloudflare Edge Cache\n(caches.default)"]
         R2[("Cloudflare R2\nBucket: cdn")]
         ImgProxy["imgproxy (optional)\n/img/* · 10s AbortSignal timeout"]
@@ -51,7 +55,7 @@ flowchart TB
     Entry["src/index.ts\nComposition Root (WorkerEnv + ExecutionContext)"]
 
     subgraph Primary["Primary / Driving Adapter"]
-        Router["src/api/router.ts\nHTTP Dispatch · Method Guard · CORS · @resq-systems/logger"]
+        Router["src/api/router.ts\nHTTP Dispatch · Tiered Rate Limit · Method Guard · CORS · @resq-systems/logger"]
     end
 
     subgraph App["Application Layer (Use Cases)"]
@@ -59,8 +63,8 @@ flowchart TB
     end
 
     subgraph Domain["Domain Core (Pure TS — Zero Runtime / SDK Imports)"]
-        Models["src/domain/asset.ts\nBranded ObjectKey · Pathname · UnixSeconds (@resq-systems/types)\nAssetPath · SignedRequest · ImageTransform · CdnError"]
-        Ports["src/domain/ports.ts\nObjectStorePort · EdgeCachePort · SignatureVerifierPort · ImageProxyPort · ClockPort"]
+        Models["src/domain/asset.ts & rateLimit.ts\nBranded ObjectKey · Pathname · UnixSeconds (@resq-systems/types)\nAssetPath · SignedRequest · ImageTransform · CdnRateLimitPolicy · CdnError"]
+        Ports["src/domain/ports.ts\nObjectStorePort · EdgeCachePort · SignatureVerifierPort · ImageProxyPort · RateLimiterPort · ClockPort"]
     end
 
     subgraph Secondary["Secondary / Driven Adapters"]
@@ -68,15 +72,17 @@ flowchart TB
         CacheAdapter["src/adapters/cfEdgeCache.ts\ncaches.default + ctx.waitUntil()"]
         HmacAdapter["src/adapters/hmacSignatureVerifier.ts\nIsolate-cached CryptoKey · Timing-Safe HMAC-SHA256"]
         ImgAdapter["src/adapters/imgproxyClient.ts\nHTTP fetch · 10s AbortSignal timeout -> 504/502"]
+        RlAdapter["src/adapters/cfRateLimiter.ts\nCloudflare RateLimit Bindings + Isolate Sliding-Window Fallback"]
     end
 
-    Entry --> Router & Service & R2Adapter & CacheAdapter & HmacAdapter & ImgAdapter
-    Router --> Service
+    Entry --> Router & Service & R2Adapter & CacheAdapter & HmacAdapter & ImgAdapter & RlAdapter
+    Router --> Service & RlAdapter
     Service --> Models & Ports
     R2Adapter -.->|"implements"| Ports
     CacheAdapter -.->|"implements"| Ports
     HmacAdapter -.->|"implements"| Ports
     ImgAdapter -.->|"implements"| Ports
+    RlAdapter -.->|"implements"| Ports
 ```
 
 ---
@@ -147,7 +153,11 @@ flowchart LR
     Push -->|"cloudflare-worker/** on main"| Dep --> Smoke
 ```
 
-Weekly grouped dependency PRs are managed automatically via [`.github/dependabot.yml`](./.github/dependabot.yml).
+Weekly grouped dependency PRs are managed automatically via [`.github/dependabot.yml`](./.github/dependabot.yml) (`bun` + `github-actions`). All workflows are audited with `zizmor` (`0` findings) with 40-char commit SHA pinning and `persist-credentials: false`.
+
+### SemVer Releases (`.github/workflows/release.yml`)
+
+Pushing an annotated SemVer tag (`vX.Y.Z`) or triggering `workflow_dispatch` runs typecheck, unit + Hexagonal tests, `bun audit --audit-level=high`, builds a reproducible `cdn-worker-vX.Y.Z.tar.gz` + `SHA256SUMS.txt`, deploys to Cloudflare Workers production with live smoke verification, and publishes a GitHub Release with categorized notes ([`.github/release.yml`](./.github/release.yml)).
 
 ---
 
@@ -155,24 +165,26 @@ Weekly grouped dependency PRs are managed automatically via [`.github/dependabot
 
 | Control | Implementation | Protection / Benefit |
 | :--- | :--- | :--- |
+| **Tiered Edge Rate Limiting** | [`rateLimit.ts`](./cloudflare-worker/src/domain/rateLimit.ts) + [`cfRateLimiter.ts`](./cloudflare-worker/src/adapters/cfRateLimiter.ts) | Native Cloudflare `ratelimits` bindings (`/img/*` 60/60s, `/private/*` 120/60s, `/assets/*` 300/60s) keyed by non-spoofable `CF-Connecting-IP`, bounded weighted sliding-window isolate fallback, and IETF `RateLimit-*` + `Retry-After` headers |
 | **SVG / XML Stored XSS Sandboxing** | [`cdnService.ts`](./cloudflare-worker/src/application/cdnService.ts) | Emits `Content-Security-Policy: default-src 'none'; sandbox` on SVG/XML/HTML objects + `X-Content-Type-Options: nosniff` on every response |
 | **Isolate-Cached HMAC Verification** | [`hmacSignatureVerifier.ts`](./cloudflare-worker/src/adapters/hmacSignatureVerifier.ts) | Caches WebCrypto `CryptoKey` per Worker isolate + verifies signatures with `crypto.subtle.timingSafeEqual` (zero timing leak, low CPU) |
 | **Path Traversal & Prefix Isolation** | [`asset.ts`](./cloudflare-worker/src/domain/asset.ts) | Rejects malformed percent-encoding, `..`, and `\` (`400`); blocks `/img/private/*` (`403`); clamps dimensions (`0–4096`) and quality (`10–100`) |
 | **Branded Domain Types** | [`@resq-systems/types`](https://github.com/resq-software/npm) | Nominal `ObjectKey`, `Pathname`, `UnixSeconds` brands + curried range guards (`isInRange`, `isNonEmptyString`) |
 | **Bounded Upstream Timeout** | [`imgproxyClient.ts`](./cloudflare-worker/src/adapters/imgproxyClient.ts) | `AbortSignal.timeout(10_000)` prevents hung Worker isolates, mapping cleanly to `504 Gateway Timeout` / `502 Bad Gateway` |
 | **O(1) Edge Delivery** | [`cfEdgeCache.ts`](./cloudflare-worker/src/adapters/cfEdgeCache.ts) + [`r2ObjectStore.ts`](./cloudflare-worker/src/adapters/r2ObjectStore.ts) | Non-blocking `ctx.waitUntil(cache.put(...))`, full `Range`/`206` streaming, `HEAD` without body reads, `ETag`/`304` conditional caching |
-| **Zero-Vulnerability Bundle** | [`test.yml`](./.github/workflows/test.yml) | Verified by `bun audit --audit-level=high` (`0` vulnerabilities) and compiled to `~8.7 KiB` gzipped |
+| **Zero-Vulnerability Bundle** | [`test.yml`](./.github/workflows/test.yml) | Verified by `bun audit --audit-level=high` (`0` vulnerabilities), `zizmor` (`0` findings), and compiled to `~10.6 KiB` gzipped |
 
 ---
 
 ## Routes
 
-| Route | Methods | Behavior |
-| :--- | :--- | :--- |
-| `/health` | `GET` | Worker liveness check (`{"status":"healthy","service":"cdn-worker"}`) |
-| `/assets/<key>` | `GET`, `HEAD`, `OPTIONS` | Public immutable R2 delivery (`public, max-age=31536000, immutable`), Edge Cache, `ETag`/`304`, `Range`/`206`, SVG CSP sandbox |
-| `/private/<key>?exp=&sig=` | `GET`, `HEAD`, `OPTIONS` | Timing-safe HMAC-SHA256 signed private R2 delivery (compatible with `api.mikeodnis.dev` `POST /v1/media/sign`), bypasses shared edge cache |
-| `/img/<key>?w=&h=&q=&f=` | `GET`, `HEAD`, `OPTIONS` | On-the-fly image transforms via `imgproxy` (blocks `private/*`, clamps `w`/`h`/`q`, allow-lists `webp`/`avif`/`jpg`/`jpeg`/`png`) |
+| Route | Methods | Rate Limit | Behavior |
+| :--- | :--- | :--- | :--- |
+| `/health` | `GET` | Exempt | Worker liveness check (`{"status":"healthy","service":"cdn-worker"}`) |
+| `/health/metrics` | `GET` | Exempt | Worker liveness + rate-limiter observability metrics (`evaluated`, `limited429`, `limitedByTier`, `bindingErrors`, `isolateFallbackHits`) |
+| `/assets/<key>` | `GET`, `HEAD`, `OPTIONS` | `300 / 60s` | Public immutable R2 delivery (`public, max-age=31536000, immutable`), Edge Cache, `ETag`/`304`, `Range`/`206`, SVG CSP sandbox |
+| `/private/<key>?exp=&sig=` | `GET`, `HEAD`, `OPTIONS` | `120 / 60s` | Timing-safe HMAC-SHA256 signed private R2 delivery (compatible with `api.mikeodnis.dev` `POST /v1/media/sign`), bypasses shared edge cache |
+| `/img/<key>?w=&h=&q=&f=` | `GET`, `HEAD`, `OPTIONS` | `60 / 60s` | On-the-fly image transforms via `imgproxy` (blocks `private/*`, clamps `w`/`h`/`q`, allow-lists `webp`/`avif`/`jpg`/`jpeg`/`png`) |
 
 ---
 
@@ -208,27 +220,32 @@ Pushes to `main` touching `cloudflare-worker/**` automatically run typecheck, un
 ```text
 cdn/
 ├── .github/
-│   ├── dependabot.yml                        # Weekly grouped updates (npm + actions)
+│   ├── dependabot.yml                        # Weekly grouped updates (bun + actions)
+│   ├── release.yml                           # Categorized GitHub release notes config
 │   └── workflows/
-│       ├── test.yml                          # Typecheck, tests, dry-run bundle, bun audit
+│       ├── test.yml                          # Typecheck, tests, dry-run bundle, bun audit, zizmor
 │       ├── deploy.yml                        # Production Worker deploy + live smoke test
+│       ├── release.yml                       # SemVer release workflow + checksums + deploy
 │       └── upload-assets.yml                 # Bulk static R2 upload + manifest artifact
 ├── cloudflare-worker/
 │   ├── src/
 │   │   ├── domain/
 │   │   │   ├── asset.ts                      # Branded value objects, sanitization, CdnError
-│   │   │   └── ports.ts                      # Outbound port interfaces
+│   │   │   ├── rateLimit.ts                  # Pure tiered rate-limit policies & IETF headers
+│   │   │   └── ports.ts                      # Outbound port interfaces (incl. RateLimiterPort)
 │   │   ├── application/
 │   │   │   └── cdnService.ts                 # Use cases + SVG CSP sandbox + CORS
 │   │   ├── adapters/
 │   │   │   ├── r2ObjectStore.ts              # Cloudflare R2Bucket adapter
 │   │   │   ├── cfEdgeCache.ts                # Cloudflare caches.default adapter
+│   │   │   ├── cfRateLimiter.ts              # Cloudflare RateLimit bindings + isolate fallback
 │   │   │   ├── hmacSignatureVerifier.ts      # Isolate-cached timing-safe HMAC-SHA256
 │   │   │   └── imgproxyClient.ts             # Bounded-timeout HTTP imgproxy adapter
 │   │   ├── api/
-│   │   │   └── router.ts                     # Primary HTTP adapter + @resq-systems/logger
+│   │   │   └── router.ts                     # Primary HTTP adapter + rate limit + @resq-systems/logger
 │   │   ├── __tests__/
 │   │   │   ├── cdn.test.ts                   # End-to-end Worker & security tests
+│   │   │   ├── rateLimit.test.ts             # Edge binding & sliding-window fallback tests
 │   │   │   └── architecture.test.ts          # Hexagonal import-boundary enforcement
 │   │   └── index.ts                          # Composition root
 │   ├── wrangler.jsonc
