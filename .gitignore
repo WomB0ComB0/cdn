@@ -36,3 +36,10 @@ asset-manifest.json
 dist/
 build/
 .wrangler/
+
+# Android TWA build output & signing keys (never commit)
+android-twa/
+*.keystore
+*.jks
+*.apk
+*.aab

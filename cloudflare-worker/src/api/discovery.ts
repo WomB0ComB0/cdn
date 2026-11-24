@@ -14,6 +14,23 @@ Preferred-Languages: en
 Canonical: ${CDN_ORIGIN}/.well-known/security.txt
 `;
 
+export const CDN_ASSETLINKS_JSON = JSON.stringify(
+  [
+    {
+      relation: ['delegate_permission/common.handle_all_urls'],
+      target: {
+        namespace: 'android_app',
+        package_name: 'dev.mikeodnis.cdn',
+        sha256_cert_fingerprints: [
+          '0A:E3:12:B7:5D:D1:C8:EA:24:F4:F0:57:D3:5E:6C:EA:26:EF:D9:A4:8A:1F:1E:BC:2C:2A:39:F9:34:8F:0C:12',
+        ],
+      },
+    },
+  ],
+  null,
+  2
+);
+
 export const CDN_ROBOTS_TXT = `# cdn.mikeodnis.dev — Edge Media Delivery & Asset CDN
 # Machine-readable LLM guides:
 #   ${CDN_ORIGIN}/llms.txt

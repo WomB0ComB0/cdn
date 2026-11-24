@@ -10,6 +10,7 @@ import {
 } from '../domain/rateLimit.js';
 import {
   API_ORIGIN,
+  CDN_ASSETLINKS_JSON,
   CDN_LINK_HEADER,
   CDN_LLMS_FULL_TXT,
   CDN_LLMS_TXT,
@@ -248,6 +249,13 @@ export function createRouter(
       if (path === '/.well-known/security.txt') {
         return staticResponse(method, CDN_SECURITY_TXT, 'text/plain; charset=utf-8', {
           cacheControl: 'public, max-age=86400',
+          corp: 'cross-origin',
+        });
+      }
+
+      if (path === '/.well-known/assetlinks.json') {
+        return staticResponse(method, CDN_ASSETLINKS_JSON, 'application/json; charset=utf-8', {
+          cacheControl: 'public, max-age=3600',
           corp: 'cross-origin',
         });
       }

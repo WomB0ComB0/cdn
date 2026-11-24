@@ -126,6 +126,7 @@ describe('cdn.mikeodnis.dev Live Console, Upload Studio PWA, and LLM/Security Di
       ['/llms.txt', 'text/markdown', '# cdn.mikeodnis.dev'],
       ['/llms-full.txt', 'text/markdown', 'HMAC-SHA256'],
       ['/.well-known/security.txt', 'text/plain', 'Contact: mailto:mike@mikeodnis.dev'],
+      ['/.well-known/assetlinks.json', 'application/json', 'dev.mikeodnis.cdn'],
       ['/robots.txt', 'text/plain', 'Sitemap: https://cdn.mikeodnis.dev/sitemap.xml'],
       ['/sitemap.xml', 'application/xml', '<loc>https://cdn.mikeodnis.dev/upload</loc>'],
       ['/openapi.yaml', 'application/yaml', 'openapi: 3.1.0'],
