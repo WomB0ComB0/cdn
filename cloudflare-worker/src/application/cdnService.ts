@@ -152,7 +152,18 @@ export class CdnService {
       throw new CdnError(upstream.status, 'Image processing failed');
     }
 
-    const headers = new Headers(upstream.headers);
+    const upstreamCT = (upstream.headers.get('Content-Type') || '').toLowerCase();
+    if (!upstreamCT.startsWith('image/')) {
+      throw new CdnError(502, 'Invalid upstream image content type');
+    }
+
+    // Allowlist only safe media headers from upstream imgproxy (never forward Set-Cookie / Server / X-Powered-By).
+    const headers = new Headers();
+    headers.set('Content-Type', upstreamCT);
+    const upstreamLen = upstream.headers.get('Content-Length');
+    if (upstreamLen) headers.set('Content-Length', upstreamLen);
+    const upstreamEtag = upstream.headers.get('ETag');
+    if (upstreamEtag) headers.set('ETag', upstreamEtag);
     const ttl = this.deps.config.cacheTtlImmutable;
     headers.set('Cache-Control', `public, max-age=${ttl}, immutable`);
     headers.set('CDN-Cache-Control', `public, max-age=${ttl}`);
