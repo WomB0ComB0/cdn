@@ -8,12 +8,91 @@ import {
   type CdnRateLimitDecision,
   classifyCdnRateLimitPolicy,
 } from '../domain/rateLimit.js';
+import {
+  API_ORIGIN,
+  CDN_LINK_HEADER,
+  CDN_LLMS_FULL_TXT,
+  CDN_LLMS_TXT,
+  CDN_OPENAPI_YAML,
+  CDN_ROBOTS_TXT,
+  CDN_SECURITY_TXT,
+  CDN_SERVICE_DESCRIPTOR,
+  CDN_SITEMAP_XML,
+} from './discovery.js';
+import {
+  CDN_ICON_SVG,
+  CDN_MANIFEST_JSON,
+  CDN_SW_JS,
+  renderCdnHomePage,
+  renderUploadStudioPage,
+} from './pages.js';
 
 const log = Logger.getLogger('[cdn-worker]', {
   minLevel: LogLevel.WARN,
   includeTimestamp: false,
   colorize: false,
 });
+
+const CSP_HTML_HOME = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data:",
+  "connect-src 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+].join('; ');
+
+const CSP_HTML_UPLOAD = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https://cdn.mikeodnis.dev",
+  `connect-src 'self' ${API_ORIGIN} https://*.r2.cloudflarestorage.com`,
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+].join('; ');
+
+function staticResponse(
+  method: HttpMethod,
+  body: string,
+  contentType: string,
+  options: {
+    cacheControl: string;
+    corp?: 'same-site' | 'cross-origin';
+    csp?: string;
+    linkHeader?: boolean;
+  }
+): Response {
+  const headers = new Headers({
+    'Content-Type': contentType,
+    'Cache-Control': options.cacheControl,
+    'Strict-Transport-Security': 'max-age=63072000; includeSubDomains; preload',
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    'Permissions-Policy': 'camera=(self), microphone=(), geolocation=()',
+    'Cross-Origin-Opener-Policy': 'same-origin',
+    'Cross-Origin-Resource-Policy': options.corp ?? 'same-site',
+  });
+  if (options.csp) {
+    headers.set('Content-Security-Policy', options.csp);
+  }
+  if (options.linkHeader) {
+    headers.set('Link', CDN_LINK_HEADER);
+  }
+  return new Response(method === 'HEAD' ? null : body, { status: 200, headers });
+}
+
+function prefersJson(request: Request): boolean {
+  const accept = (request.headers.get('Accept') || '').toLowerCase();
+  if (!accept) return false;
+  return accept.includes('application/json') && !accept.includes('text/html');
+}
 
 export interface RouterOptions {
   readonly rateLimiter?: RateLimiterPort;
@@ -52,6 +131,98 @@ export function createRouter(
         });
       }
 
+      const method: HttpMethod = request.method;
+
+      // Static Live Console landing page, Upload Studio PWA, and LLM/AEO/security discovery routes
+      if (path === '/' || path === '') {
+        if (prefersJson(request)) {
+          return staticResponse(
+            method,
+            JSON.stringify(CDN_SERVICE_DESCRIPTOR, null, 2),
+            'application/json; charset=utf-8',
+            { cacheControl: 'public, max-age=300', corp: 'cross-origin', linkHeader: true }
+          );
+        }
+        return staticResponse(method, renderCdnHomePage(), 'text/html; charset=utf-8', {
+          cacheControl: 'public, max-age=300',
+          csp: CSP_HTML_HOME,
+          linkHeader: true,
+        });
+      }
+
+      if (path === '/upload') {
+        return staticResponse(method, renderUploadStudioPage(), 'text/html; charset=utf-8', {
+          cacheControl: 'public, max-age=300',
+          csp: CSP_HTML_UPLOAD,
+        });
+      }
+
+      if (path === '/manifest.webmanifest') {
+        return staticResponse(
+          method,
+          CDN_MANIFEST_JSON,
+          'application/manifest+json; charset=utf-8',
+          { cacheControl: 'public, max-age=3600', corp: 'cross-origin' }
+        );
+      }
+
+      if (path === '/icon.svg') {
+        return staticResponse(method, CDN_ICON_SVG, 'image/svg+xml; charset=utf-8', {
+          cacheControl: 'public, max-age=86400',
+          corp: 'cross-origin',
+        });
+      }
+
+      if (path === '/sw.js') {
+        return staticResponse(method, CDN_SW_JS, 'application/javascript; charset=utf-8', {
+          cacheControl: 'no-cache, max-age=0, must-revalidate',
+        });
+      }
+
+      if (path === '/llms.txt') {
+        return staticResponse(method, CDN_LLMS_TXT, 'text/markdown; charset=utf-8', {
+          cacheControl: 'public, max-age=3600',
+          corp: 'cross-origin',
+          linkHeader: true,
+        });
+      }
+
+      if (path === '/llms-full.txt') {
+        return staticResponse(method, CDN_LLMS_FULL_TXT, 'text/markdown; charset=utf-8', {
+          cacheControl: 'public, max-age=3600',
+          corp: 'cross-origin',
+          linkHeader: true,
+        });
+      }
+
+      if (path === '/.well-known/security.txt') {
+        return staticResponse(method, CDN_SECURITY_TXT, 'text/plain; charset=utf-8', {
+          cacheControl: 'public, max-age=86400',
+          corp: 'cross-origin',
+        });
+      }
+
+      if (path === '/robots.txt') {
+        return staticResponse(method, CDN_ROBOTS_TXT, 'text/plain; charset=utf-8', {
+          cacheControl: 'public, max-age=3600',
+          corp: 'cross-origin',
+        });
+      }
+
+      if (path === '/sitemap.xml') {
+        return staticResponse(method, CDN_SITEMAP_XML, 'application/xml; charset=utf-8', {
+          cacheControl: 'public, max-age=3600',
+          corp: 'cross-origin',
+        });
+      }
+
+      if (path === '/openapi.yaml') {
+        return staticResponse(method, CDN_OPENAPI_YAML, 'application/yaml; charset=utf-8', {
+          cacheControl: 'public, max-age=3600',
+          corp: 'cross-origin',
+        });
+      }
+
       // Enforce tiered edge rate limiting before R2/imgproxy/HMAC work
       if (options.rateLimiter) {
         const policy = classifyCdnRateLimitPolicy(request.method, path);
@@ -73,7 +244,6 @@ export function createRouter(
         }
       }
 
-      const method: HttpMethod = request.method;
       const asset = AssetPath.parse(path);
 
       let response: Response;

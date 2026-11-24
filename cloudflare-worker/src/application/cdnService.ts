@@ -200,6 +200,7 @@ export class CdnService {
 
 export function applySecurityHeaders(headers: Headers): void {
   headers.set('X-Content-Type-Options', 'nosniff');
+  headers.set('Cross-Origin-Resource-Policy', 'cross-origin');
   const contentType = (headers.get('Content-Type') || '').toLowerCase();
   if (contentType.includes('svg') || contentType.includes('html') || contentType.includes('xml')) {
     // Prevent Stored XSS when rendering user-uploaded SVGs/XML directly on the CDN origin
