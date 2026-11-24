@@ -228,6 +228,20 @@ describe('cdn-worker hexagonal architecture (cdn.mikeodnis.dev)', () => {
       ctx
     );
     expect(nulPath.status).toBe(400);
+
+    // Unconfirmed presigned staging/* objects are NEVER servable from the CDN edge (404)
+    const stagedEnv = createMockEnv({
+      'staging/assets/u1/unverified.svg': {
+        body: '<svg><script>alert(1)</script></svg>',
+        contentType: 'image/svg+xml',
+      },
+    });
+    const stagedRes = await worker.fetch(
+      new Request('https://cdn.mikeodnis.dev/staging/assets/u1/unverified.svg'),
+      stagedEnv,
+      ctx
+    );
+    expect(stagedRes.status).toBe(404);
   });
 
   test('sandboxes SVG uploads with strict CSP to prevent Stored XSS', async () => {

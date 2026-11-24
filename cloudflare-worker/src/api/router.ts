@@ -147,10 +147,13 @@ export function createRouter(
       }
 
       if (path === '/health/metrics') {
-        return Response.json({
-          ...service.health(),
-          rateLimiter: options.rateLimiter?.metrics() ?? null,
-        });
+        return Response.json(
+          {
+            ...service.health(),
+            rateLimiter: options.rateLimiter?.metrics() ?? null,
+          },
+          { headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } }
+        );
       }
 
       if (request.method !== 'GET' && request.method !== 'HEAD') {

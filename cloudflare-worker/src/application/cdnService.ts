@@ -134,7 +134,11 @@ export class CdnService {
       format: url.searchParams.get('f'),
     });
 
-    const cacheKey = new Request(url.toString(), { method: 'GET' });
+    // Canonicalize cache key from sanitized transform params only so arbitrary ?cb= cannot bust Edge Cache / DoS imgproxy.
+    const cacheKey = new Request(
+      `${url.origin}/img/${transform.sourceKey}?w=${transform.width}&h=${transform.height}&q=${transform.quality}&f=${transform.format}`,
+      { method: 'GET' }
+    );
     if (method === 'GET') {
       const cached = await this.deps.edgeCache.match(cacheKey);
       if (cached) {

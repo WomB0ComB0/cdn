@@ -750,22 +750,41 @@ export function renderUploadStudioPage(): string {
       renderAuthState();
     };
 
+    let refreshPromise = null;
+
+    async function refreshAccessToken() {
+      if (!session?.refresh_token) return false;
+      if (!refreshPromise) {
+        const currentRefresh = session.refresh_token;
+        refreshPromise = fetch(API + '/v1/core/auth/refresh', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refresh_token: currentRefresh }),
+        })
+          .then(async (ref) => {
+            if (!ref.ok) {
+              saveSession(null);
+              return false;
+            }
+            const pair = await ref.json();
+            saveSession({ ...session, access_token: pair.access_token, refresh_token: pair.refresh_token });
+            return true;
+          })
+          .catch(() => false)
+          .finally(() => {
+            refreshPromise = null;
+          });
+      }
+      return refreshPromise;
+    }
+
     async function apiFetch(path, opts = {}, retry = true) {
       const headers = new Headers(opts.headers || {});
       if (session?.access_token) headers.set('Authorization', 'Bearer ' + session.access_token);
       const res = await fetch(API + path, { ...opts, headers });
       if (res.status === 401 && retry && session?.refresh_token) {
-        const ref = await fetch(API + '/v1/core/auth/refresh', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ refresh_token: session.refresh_token }),
-        });
-        if (ref.ok) {
-          const pair = await ref.json();
-          saveSession({ ...session, access_token: pair.access_token, refresh_token: pair.refresh_token });
-          return apiFetch(path, opts, false);
-        }
-        saveSession(null);
+        const refreshed = await refreshAccessToken();
+        if (refreshed) return apiFetch(path, opts, false);
       }
       return res;
     }

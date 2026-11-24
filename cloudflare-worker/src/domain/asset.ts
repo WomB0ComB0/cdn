@@ -145,16 +145,18 @@ export function parseImageTransform(
 
 const isValidDimension = isInRange(0, 4096);
 const isValidQuality = isInRange(10, 100);
+const DIGITS_4_RE = /^\d{1,4}$/;
+const DIGITS_3_RE = /^\d{1,3}$/;
 
 export function sanitizeDimension(raw?: string | null): number {
-  if (!isNonEmptyString(raw)) return 0;
-  const n = Number.parseInt(raw, 10);
+  if (!isNonEmptyString(raw) || !DIGITS_4_RE.test(raw)) return 0;
+  const n = Number(raw);
   return isValidDimension(n) ? n : 0;
 }
 
 export function sanitizeQuality(raw?: string | null): number {
-  if (!isNonEmptyString(raw)) return 85;
-  const n = Number.parseInt(raw, 10);
+  if (!isNonEmptyString(raw) || !DIGITS_3_RE.test(raw)) return 85;
+  const n = Number(raw);
   return isValidQuality(n) ? n : 85;
 }
 
