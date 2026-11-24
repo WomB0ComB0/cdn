@@ -6,7 +6,7 @@ services:
     image: darthsim/imgproxy:v3.21
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     environment:
       IMGPROXY_KEY: ${IMGPROXY_KEY:-}
       IMGPROXY_SALT: ${IMGPROXY_SALT:-}
@@ -20,7 +20,8 @@ services:
       IMGPROXY_QUALITY: "85"
       IMGPROXY_GZIP_COMPRESSION: "6"
       IMGPROXY_MAX_SRC_FILE_SIZE: "52428800"
-      IMGPROXY_ALLOWED_SOURCES: s3://${R2_BUCKET_NAME:-cdn}
+      # Restrict imgproxy strictly to public assets/* so private/* and staging/* can never be fetched via imgproxy
+      IMGPROXY_ALLOWED_SOURCES: s3://${R2_BUCKET_NAME:-cdn}/assets/
       IMGPROXY_CACHE_CONTROL_PASSTHROUGH: "true"
     healthcheck:
       test: ["CMD", "imgproxy", "health"]

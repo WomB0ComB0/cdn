@@ -60,26 +60,27 @@ if [ ! -f "${KEYSTORE_PATH}" ] || [ ! -f "${KEY_ENV_PATH}" ]; then
   printf 'KEYSTORE_PASS=%q\nKEY_PASS=%q\n' "${GEN_PASS}" "${GEN_PASS}" > "${KEY_ENV_PATH}"
   chmod 600 "${KEY_ENV_PATH}"
   rm -f "${KEYSTORE_PATH}"
-  "${JAVA_HOME}/bin/keytool" -genkeypair -v \
+  KEYSTORE_PASS="${GEN_PASS}" KEY_PASS="${GEN_PASS}" "${JAVA_HOME}/bin/keytool" -genkeypair -v \
     -keystore "${KEYSTORE_PATH}" \
     -storetype PKCS12 \
     -alias "${KEY_ALIAS}" \
     -keyalg RSA \
     -keysize 2048 \
     -validity 10000 \
-    -storepass "${GEN_PASS}" \
-    -keypass "${GEN_PASS}" \
+    -storepass:env KEYSTORE_PASS \
+    -keypass:env KEY_PASS \
     -dname "CN=Mike Odnis, OU=Engineering, O=Mike Odnis, L=New York, S=NY, C=US" >/dev/null 2>&1
   chmod 600 "${KEYSTORE_PATH}"
 fi
 
 # shellcheck disable=SC1090
 source "${KEY_ENV_PATH}"
+export KEYSTORE_PASS KEY_PASS
 
 SHA256_FP="$("${JAVA_HOME}/bin/keytool" -list -v \
   -keystore "${KEYSTORE_PATH}" \
   -alias "${KEY_ALIAS}" \
-  -storepass "${KEYSTORE_PASS}" \
+  -storepass:env KEYSTORE_PASS \
   | awk '/SHA256:/ {print $2; exit}')"
 
 if [ -z "${SHA256_FP}" ]; then
@@ -182,8 +183,8 @@ echo "==> Zipaligning and signing APK..."
 "${BUILD_TOOLS_DIR}/apksigner" sign \
   --ks "${KEYSTORE_PATH}" \
   --ks-key-alias "${KEY_ALIAS}" \
-  --ks-pass "pass:${KEYSTORE_PASS}" \
-  --key-pass "pass:${KEY_PASS}" \
+  --ks-pass env:KEYSTORE_PASS \
+  --key-pass env:KEY_PASS \
   --out "${SIGNED_APK}" \
   "${ALIGNED_APK}"
 rm -f "${ALIGNED_APK}"
