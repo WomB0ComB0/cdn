@@ -111,7 +111,9 @@ export class CdnService {
     }
 
     return this.buildObjectResponse(object, method, request.headers.has('range'), {
-      cacheControl: `private, max-age=${this.deps.config.cacheTtlPrivate}`,
+      cacheControl: `private, max-age=${this.deps.config.cacheTtlPrivate}, no-transform`,
+      cdnCacheControl: 'no-store',
+      isPrivate: true,
     });
   }
 
@@ -169,7 +171,7 @@ export class CdnService {
     object: StoredObject,
     method: HttpMethod,
     hasRange: boolean,
-    cache: { cacheControl: string; cdnCacheControl?: string }
+    cache: { cacheControl: string; cdnCacheControl?: string; isPrivate?: boolean }
   ): Response {
     const headers = new Headers();
     object.writeHttpMetadata(headers);
@@ -178,6 +180,11 @@ export class CdnService {
     headers.set('Cache-Control', cache.cacheControl);
     if (cache.cdnCacheControl) {
       headers.set('CDN-Cache-Control', cache.cdnCacheControl);
+    }
+    if (cache.isPrivate) {
+      // Prevent leaking signed ?exp=&sig= query params in Referer headers or search engine indexes
+      headers.set('Referrer-Policy', 'no-referrer');
+      headers.set('X-Robots-Tag', 'noindex, nofollow');
     }
     applySecurityHeaders(headers);
     applyCorsHeaders(headers);

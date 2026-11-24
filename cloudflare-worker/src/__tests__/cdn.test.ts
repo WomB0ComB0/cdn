@@ -150,6 +150,9 @@ describe('cdn-worker hexagonal architecture (cdn.mikeodnis.dev)', () => {
     );
     expect(ok.status).toBe(200);
     expect(ok.headers.get('Cache-Control')).toContain('private');
+    expect(ok.headers.get('CDN-Cache-Control')).toBe('no-store');
+    expect(ok.headers.get('Referrer-Policy')).toBe('no-referrer');
+    expect(ok.headers.get('X-Robots-Tag')).toBe('noindex, nofollow');
     expect(await ok.text()).toBe('pdf-secret');
 
     const badSig = await worker.fetch(

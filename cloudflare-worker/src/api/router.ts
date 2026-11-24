@@ -346,6 +346,7 @@ export function createRouter(
     } catch (err) {
       if (err instanceof CdnError) {
         const headers = new Headers(err.headers);
+        headers.set('X-Content-Type-Options', 'nosniff');
         if (rateDecision) {
           applyCdnRateLimitHeaders(headers, rateDecision);
         }
@@ -355,7 +356,10 @@ export function createRouter(
         });
       }
       log.error('Unhandled CDN Worker error', err);
-      return new Response('Internal Server Error', { status: 500 });
+      return new Response('Internal Server Error', {
+        status: 500,
+        headers: { 'X-Content-Type-Options': 'nosniff' },
+      });
     }
   };
 }
