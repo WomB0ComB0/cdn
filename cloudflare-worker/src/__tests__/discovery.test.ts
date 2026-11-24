@@ -99,7 +99,9 @@ describe('cdn.mikeodnis.dev Live Console, Upload Studio PWA, and LLM/Security Di
     const sw = await worker.fetch(new Request('https://cdn.mikeodnis.dev/sw.js'), env, ctx);
     expect(sw.status).toBe(200);
     expect(sw.headers.get('Content-Type')).toContain('javascript');
-    expect(await sw.text()).toContain('/upload-share');
+    const swBody = await sw.text();
+    expect(swBody).toContain('/upload-share');
+    expect(swBody).toContain('url.origin !== self.location.origin');
 
     const icon = await worker.fetch(new Request('https://cdn.mikeodnis.dev/icon.svg'), env, ctx);
     expect(icon.status).toBe(200);

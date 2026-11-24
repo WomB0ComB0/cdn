@@ -69,6 +69,7 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
+  if (url.origin !== self.location.origin) return;
 
   // Android / Desktop Web Share Target handoff: stash shared file in Cache API and open /upload?shared=1
   if (event.request.method === 'POST' && url.pathname === '/upload-share') {
@@ -95,7 +96,7 @@ self.addEventListener('fetch', (event) => {
 
   if (event.request.method === 'GET' && (url.pathname === '/upload' || url.pathname === '/icon.svg' || url.pathname === '/manifest.webmanifest')) {
     event.respondWith(
-      fetch(event.request).catch(() => caches.match(event.request))
+      fetch(event.request).catch(async () => (await caches.match(event.request)) || new Response('Offline', { status: 503 }))
     );
   }
 });
