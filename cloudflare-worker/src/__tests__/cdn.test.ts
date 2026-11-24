@@ -280,4 +280,53 @@ describe('cdn-worker hexagonal architecture (cdn.mikeodnis.dev)', () => {
     expect(zipRes.status).toBe(200);
     expect(zipRes.headers.get('Content-Disposition')).toBe('attachment');
   });
+
+  test('sends canonical Accept derived from explicit transform format and blocks upstream SVG from imgproxy', async () => {
+    const cache = createMockCache();
+    (globalThis as unknown as { caches: { default: Cache } }).caches = { default: cache };
+    const env: WorkerEnv = {
+      ...createMockEnv(),
+      IMGPROXY_URL: 'https://img.mikeodnis.dev',
+    };
+    const waited: Promise<unknown>[] = [];
+    const ctx = { waitUntil(p: Promise<unknown>) { waited.push(p); } } as unknown as ExecutionContext;
+
+    const origFetch = globalThis.fetch;
+    const seenAccepts: string[] = [];
+    let returnSvg = false;
+    globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+      seenAccepts.push(new Headers(init?.headers).get('Accept') || '');
+      if (returnSvg) {
+        return new Response('<svg/>', { status: 200, headers: { 'Content-Type': 'image/svg+xml' } });
+      }
+      return new Response('webp-binary', { status: 200, headers: { 'Content-Type': 'image/webp' } });
+    }) as typeof fetch;
+
+    try {
+      // Spoofed client Accept: image/avif must NOT be forwarded to imgproxy when format defaults to webp
+      const webpRes = await worker.fetch(
+        new Request('https://cdn.mikeodnis.dev/img/assets/u1/hero.png?w=400', {
+          headers: { Accept: 'image/avif,text/html,*/*' },
+        }),
+        env,
+        ctx
+      );
+      expect(webpRes.status).toBe(200);
+      expect(webpRes.headers.get('Content-Type')).toBe('image/webp');
+      expect(seenAccepts[0]).toBe('image/webp,*/*');
+      await Promise.all(waited);
+
+      // Upstream imgproxy returning image/svg+xml must be rejected with 502
+      returnSvg = true;
+      const svgRes = await worker.fetch(
+        new Request('https://cdn.mikeodnis.dev/img/assets/u1/other.png?w=400&f=png'),
+        env,
+        ctx
+      );
+      expect(svgRes.status).toBe(502);
+      expect(seenAccepts[1]).toBe('image/png,*/*');
+    } finally {
+      globalThis.fetch = origFetch;
+    }
+  });
 });

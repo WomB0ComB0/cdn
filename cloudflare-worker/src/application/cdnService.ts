@@ -118,7 +118,7 @@ export class CdnService {
   }
 
   async serveTransformedImage(
-    request: Request,
+    _request: Request,
     method: HttpMethod,
     asset: AssetPath,
     url: URL
@@ -146,14 +146,16 @@ export class CdnService {
       }
     }
 
-    const accept = request.headers.get('Accept') || 'image/avif,image/webp,*/*';
-    const upstream = await this.deps.imageProxy.fetchTransformed(method, transform, accept);
+    // Derive canonical Accept header from explicit transform.format rather than forwarding arbitrary client Accept,
+    // preventing Accept-header cache poisoning if imgproxy enforces AVIF/WebP detection.
+    const canonicalMime = `image/${transform.format === 'jpg' ? 'jpeg' : transform.format}`;
+    const upstream = await this.deps.imageProxy.fetchTransformed(method, transform, `${canonicalMime},*/*`);
     if (!upstream.ok) {
       throw new CdnError(upstream.status, 'Image processing failed');
     }
 
     const upstreamCT = (upstream.headers.get('Content-Type') || '').toLowerCase();
-    if (!upstreamCT.startsWith('image/')) {
+    if (!upstreamCT.startsWith('image/') || upstreamCT.includes('svg')) {
       throw new CdnError(502, 'Invalid upstream image content type');
     }
 
@@ -209,7 +211,13 @@ export class CdnService {
     }
 
     let status = 200;
-    if (hasRange && object.range) {
+    if (
+      hasRange &&
+      object.range &&
+      object.range.length > 0 &&
+      object.range.offset >= 0 &&
+      object.range.offset + object.range.length <= object.size
+    ) {
       const { offset, length } = object.range;
       headers.set('Content-Range', `bytes ${offset}-${offset + length - 1}/${object.size}`);
       headers.set('Content-Length', String(length));
