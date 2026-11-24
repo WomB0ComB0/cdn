@@ -101,6 +101,22 @@ describe('cdn.mikeodnis.dev Live Console, Upload Studio PWA, and LLM/Security Di
     const icon = await worker.fetch(new Request('https://cdn.mikeodnis.dev/icon.svg'), env, ctx);
     expect(icon.status).toBe(200);
     expect(icon.headers.get('Content-Type')).toContain('image/svg+xml');
+
+    for (const [assetPath, mime] of [
+      ['/favicon.ico', 'image/x-icon'],
+      ['/apple-touch-icon.png', 'image/png'],
+      ['/icon-192.png', 'image/png'],
+      ['/icon-512.png', 'image/png'],
+      ['/opengraph-image', 'image/png'],
+      ['/opengraph-image.png', 'image/png'],
+      ['/twitter-image.png', 'image/png'],
+    ] as const) {
+      const res = await worker.fetch(new Request(`https://cdn.mikeodnis.dev${assetPath}`), env, ctx);
+      expect(res.status, assetPath).toBe(200);
+      expect(res.headers.get('Content-Type'), assetPath).toBe(mime);
+      expect(res.headers.get('Cross-Origin-Resource-Policy'), assetPath).toBe('cross-origin');
+      expect((await res.arrayBuffer()).byteLength, assetPath).toBeGreaterThan(500);
+    }
   });
 
   test('serves llms.txt, llms-full.txt, security.txt, robots.txt, sitemap.xml, and openapi.yaml with HEAD support', async () => {

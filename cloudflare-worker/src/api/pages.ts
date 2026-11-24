@@ -1,12 +1,5 @@
 import { API_ORIGIN, CDN_ORIGIN } from './discovery.js';
 
-export const CDN_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
-  <rect width="512" height="512" rx="112" fill="#0c0c14"/>
-  <rect x="20" y="20" width="472" height="472" rx="96" stroke="#a78bfa" stroke-opacity="0.35" stroke-width="8"/>
-  <path d="M168 336h184c44.2 0 80-33.6 80-75 0-38.4-30.6-70.1-70.2-74.5C350.6 135 304.2 96 248 96c-64.1 0-116 51.9-116 116 0 4.8.3 9.5.9 14.1C99.5 234.4 76 263.5 76 298c0 21 17 38 38 38h54Z" fill="#181826" stroke="#a78bfa" stroke-width="18" stroke-linejoin="round"/>
-  <path d="M256 384V232m0 0-52 52m52-52 52 52" stroke="#c4b5fd" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
-</svg>`;
-
 export const CDN_MANIFEST_JSON = JSON.stringify(
   {
     id: '/upload',
@@ -22,10 +15,22 @@ export const CDN_MANIFEST_JSON = JSON.stringify(
     categories: ['utilities', 'productivity', 'developer'],
     icons: [
       {
+        src: '/icon-192.png',
+        sizes: '192x192',
+        type: 'image/png',
+        purpose: 'any maskable',
+      },
+      {
+        src: '/icon-512.png',
+        sizes: '512x512',
+        type: 'image/png',
+        purpose: 'any maskable',
+      },
+      {
         src: '/icon.svg',
         sizes: 'any',
         type: 'image/svg+xml',
-        purpose: 'any maskable',
+        purpose: 'any',
       },
     ],
     share_target: {
@@ -264,15 +269,26 @@ export function renderCdnHomePage(): string {
   <meta name="description" content="Global edge CDN for public immutable R2 assets, HMAC-SHA256 signed private files, on-the-fly AVIF/WebP image transforms, and the installable Upload Studio PWA." />
   <meta name="theme-color" content="#0c0c14" />
   <link rel="canonical" href="${CDN_ORIGIN}/" />
+  <link rel="icon" href="/favicon.ico" sizes="any" />
   <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   <link rel="manifest" href="/manifest.webmanifest" />
   <link rel="describedby" type="text/markdown" href="/llms.txt" title="LLM documentation index" />
   <link rel="service-desc" type="application/yaml" href="/openapi.yaml" title="OpenAPI 3.1 Specification" />
+  <meta property="og:site_name" content="cdn.mikeodnis.dev" />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="${CDN_ORIGIN}/" />
   <meta property="og:title" content="cdn.mikeodnis.dev — Edge Media Delivery" />
   <meta property="og:description" content="Cloudflare Workers + R2 edge CDN with immutable caching, HMAC private URLs, imgproxy transforms, and Upload Studio PWA." />
-  <meta name="twitter:card" content="summary" />
+  <meta property="og:image" content="${CDN_ORIGIN}/opengraph-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:type" content="image/png" />
+  <meta property="og:image:alt" content="cdn.mikeodnis.dev — Edge media delivery, R2 assets, AVIF/WebP transforms, HMAC private URLs" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="cdn.mikeodnis.dev — Edge Media Delivery" />
+  <meta name="twitter:description" content="Cloudflare Workers + R2 edge CDN with immutable caching, HMAC private URLs, imgproxy transforms, and Upload Studio PWA." />
+  <meta name="twitter:image" content="${CDN_ORIGIN}/twitter-image.png" />
   <meta name="twitter:creator" content="@mike_odnis" />
   <script type="application/ld+json">${jsonLd}</script>
   <style>${LIVE_CONSOLE_CSS}</style>
@@ -461,8 +477,19 @@ export function renderUploadStudioPage(): string {
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <link rel="canonical" href="${CDN_ORIGIN}/upload" />
+  <link rel="icon" href="/favicon.ico" sizes="any" />
   <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   <link rel="manifest" href="/manifest.webmanifest" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="${CDN_ORIGIN}/upload" />
+  <meta property="og:title" content="Upload Studio — cdn.mikeodnis.dev" />
+  <meta property="og:description" content="Installable PWA for uploading, signing, transforming, and managing R2 assets on cdn.mikeodnis.dev." />
+  <meta property="og:image" content="${CDN_ORIGIN}/opengraph-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:image" content="${CDN_ORIGIN}/twitter-image.png" />
   <style>${LIVE_CONSOLE_CSS}
     .field { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 0.75rem; }
     .field label { font-family: var(--font-mono); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--faint); }

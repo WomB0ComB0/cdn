@@ -20,7 +20,14 @@ import {
   CDN_SITEMAP_XML,
 } from './discovery.js';
 import {
+  CDN_APPLE_TOUCH_ICON_PNG,
+  CDN_FAVICON_ICO,
+  CDN_ICON_192_PNG,
+  CDN_ICON_512_PNG,
   CDN_ICON_SVG,
+  CDN_OG_IMAGE_PNG,
+} from './brandAssets.js';
+import {
   CDN_MANIFEST_JSON,
   CDN_SW_JS,
   renderCdnHomePage,
@@ -59,7 +66,7 @@ const CSP_HTML_UPLOAD = [
 
 function staticResponse(
   method: HttpMethod,
-  body: string,
+  body: string | Uint8Array,
   contentType: string,
   options: {
     cacheControl: string;
@@ -85,7 +92,10 @@ function staticResponse(
   if (options.linkHeader) {
     headers.set('Link', CDN_LINK_HEADER);
   }
-  return new Response(method === 'HEAD' ? null : body, { status: 200, headers });
+  if (body instanceof Uint8Array) {
+    headers.set('Content-Length', String(body.byteLength));
+  }
+  return new Response(method === 'HEAD' ? null : (body as BodyInit), { status: 200, headers });
 }
 
 function prefersJson(request: Request): boolean {
@@ -168,6 +178,46 @@ export function createRouter(
 
       if (path === '/icon.svg') {
         return staticResponse(method, CDN_ICON_SVG, 'image/svg+xml; charset=utf-8', {
+          cacheControl: 'public, max-age=86400',
+          corp: 'cross-origin',
+        });
+      }
+
+      if (path === '/favicon.ico') {
+        return staticResponse(method, CDN_FAVICON_ICO, 'image/x-icon', {
+          cacheControl: 'public, max-age=86400',
+          corp: 'cross-origin',
+        });
+      }
+
+      if (path === '/apple-touch-icon.png') {
+        return staticResponse(method, CDN_APPLE_TOUCH_ICON_PNG, 'image/png', {
+          cacheControl: 'public, max-age=86400',
+          corp: 'cross-origin',
+        });
+      }
+
+      if (path === '/icon-192.png') {
+        return staticResponse(method, CDN_ICON_192_PNG, 'image/png', {
+          cacheControl: 'public, max-age=86400',
+          corp: 'cross-origin',
+        });
+      }
+
+      if (path === '/icon-512.png') {
+        return staticResponse(method, CDN_ICON_512_PNG, 'image/png', {
+          cacheControl: 'public, max-age=86400',
+          corp: 'cross-origin',
+        });
+      }
+
+      if (
+        path === '/opengraph-image' ||
+        path === '/opengraph-image.png' ||
+        path === '/twitter-image' ||
+        path === '/twitter-image.png'
+      ) {
+        return staticResponse(method, CDN_OG_IMAGE_PNG, 'image/png', {
           cacheControl: 'public, max-age=86400',
           corp: 'cross-origin',
         });
