@@ -79,6 +79,8 @@ describe('cdn.mikeodnis.dev Live Console, Upload Studio PWA, and LLM/Security Di
     const uploadHtml = await upload.text();
     expect(uploadHtml).toContain('Upload Studio');
     expect(uploadHtml).toContain('/v1/media/upload');
+    // Session epoch guard prevents an in-flight token refresh from resurrecting a logged-out session
+    expect(uploadHtml).toContain('sessionEpoch !== startEpoch');
 
     const manifestRes = await worker.fetch(
       new Request('https://cdn.mikeodnis.dev/manifest.webmanifest'),

@@ -743,7 +743,9 @@ export function renderUploadStudioPage(): string {
     const loadSession = () => {
       try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null'); } catch { return null; }
     };
+    let sessionEpoch = 0;
     const saveSession = (next) => {
+      sessionEpoch += 1;
       session = next;
       if (next) localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
       else localStorage.removeItem(STORAGE_KEY);
@@ -756,6 +758,7 @@ export function renderUploadStudioPage(): string {
       if (!session?.refresh_token) return false;
       if (!refreshPromise) {
         const currentRefresh = session.refresh_token;
+        const startEpoch = sessionEpoch;
         refreshPromise = fetch(API + '/v1/core/auth/refresh', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -763,10 +766,22 @@ export function renderUploadStudioPage(): string {
         })
           .then(async (ref) => {
             if (!ref.ok) {
-              saveSession(null);
+              if (sessionEpoch === startEpoch) saveSession(null);
               return false;
             }
             const pair = await ref.json();
+            // If the user signed out or switched accounts while refresh was in flight,
+            // never resurrect the logged-out session — revoke the newly rotated token instead.
+            if (sessionEpoch !== startEpoch || !session) {
+              if (pair?.refresh_token) {
+                fetch(API + '/v1/core/auth/logout', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ refresh_token: pair.refresh_token }),
+                }).catch(() => {});
+              }
+              return false;
+            }
             saveSession({ ...session, access_token: pair.access_token, refresh_token: pair.refresh_token });
             return true;
           })
