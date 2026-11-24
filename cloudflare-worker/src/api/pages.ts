@@ -696,7 +696,7 @@ export function renderUploadStudioPage(): string {
               <button id="pick-btn" type="button" class="btn btn-brand">Choose files</button>
               <button id="camera-btn" type="button" class="btn">Camera / Photo</button>
             </div>
-            <input id="file-input" type="file" multiple class="hidden" />
+            <input id="file-input" type="file" multiple accept="image/*,video/*,audio/*,.pdf,.txt,.csv,.json,.md,.zip,.woff2" class="hidden" />
             <input id="camera-input" type="file" accept="image/*,video/*" capture="environment" class="hidden" />
           </div>
 
@@ -798,12 +798,89 @@ export function renderUploadStudioPage(): string {
       return (n / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1) + ' ' + u[i];
     };
 
+    const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
+    const EXT_BY_SIG = {
+      png: ['png'], jpeg: ['jpg', 'jpeg'], gif: ['gif'], webp: ['webp'], avif: ['avif'],
+      ico: ['ico'], pdf: ['pdf'], mp4: ['mp4'], webm: ['webm'], mp3: ['mp3'],
+      wav: ['wav'], ogg: ['ogg'], zip: ['zip'], woff2: ['woff2'], svg: ['svg'],
+      text: ['txt', 'csv', 'json', 'md'],
+    };
+    const BIDI_OR_CTRL_RE = /[\u0000-\u001F\u007F\u061C\u200E\u200F\u202A-\u202E\u2066-\u2069]/;
+    const SVG_OPEN_RE = /^\s*(?:<\?xml[^>]*\?>\s*)?(?:<!DOCTYPE\s+svg[^>]*>\s*)?(?:<!--[\s\S]*?-->\s*)*<svg\b/i;
+    const SVG_ACTIVE_RE = /<\s*(?:script|foreignobject|iframe|object|embed|applet|meta)\b|<!\s*entity\b|\bon[a-z]{2,32}\s*=|(?:javascript|vbscript)\s*:|data\s*:\s*text\/html/i;
+    const HTML_PREFIX_RE = /^\s*(?:<!doctype\s+html|<html\b|<script\b|<iframe\b|<\?php\b)/i;
+
+    function eqBytes(buf, off, seq) {
+      if (buf.length < off + seq.length) return false;
+      for (let i = 0; i < seq.length; i++) if (buf[off + i] !== seq[i]) return false;
+      return true;
+    }
+
+    function detectHeadType(u8) {
+      if (eqBytes(u8, 0, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) return 'png';
+      if (eqBytes(u8, 0, [0xff, 0xd8, 0xff])) return 'jpeg';
+      if (eqBytes(u8, 0, [0x47, 0x49, 0x46, 0x38])) return 'gif';
+      if (eqBytes(u8, 0, [0x52, 0x49, 0x46, 0x46]) && eqBytes(u8, 8, [0x57, 0x45, 0x42, 0x50])) return 'webp';
+      if (eqBytes(u8, 0, [0x52, 0x49, 0x46, 0x46]) && eqBytes(u8, 8, [0x57, 0x41, 0x56, 0x45])) return 'wav';
+      if (eqBytes(u8, 0, [0x00, 0x00, 0x01, 0x00])) return 'ico';
+      if (eqBytes(u8, 0, [0x25, 0x50, 0x44, 0x46, 0x2d])) return 'pdf';
+      if (eqBytes(u8, 0, [0x77, 0x4f, 0x46, 0x32])) return 'woff2';
+      if (eqBytes(u8, 0, [0x1a, 0x45, 0xdf, 0xa3])) return 'webm';
+      if (eqBytes(u8, 0, [0x4f, 0x67, 0x67, 0x53])) return 'ogg';
+      if (eqBytes(u8, 0, [0x49, 0x44, 0x33]) || (u8.length >= 2 && u8[0] === 0xff && (u8[1] & 0xe0) === 0xe0 && (u8[1] & 0x06) !== 0)) return 'mp3';
+      if (eqBytes(u8, 0, [0x50, 0x4b, 0x03, 0x04]) || eqBytes(u8, 0, [0x50, 0x4b, 0x05, 0x06])) return 'zip';
+      if (eqBytes(u8, 4, [0x66, 0x74, 0x79, 0x70]) && u8.length >= 12) {
+        const b = String.fromCharCode(u8[8], u8[9], u8[10], u8[11]);
+        if (['avif', 'avis', 'mif1', 'msf1'].includes(b)) return 'avif';
+        return 'mp4';
+      }
+      try {
+        const text = new TextDecoder('utf-8', { fatal: true }).decode(u8.subarray(0, 512));
+        for (let i = 0; i < text.length; i++) {
+          const c = text.charCodeAt(i);
+          if (c < 32 && c !== 9 && c !== 10 && c !== 12 && c !== 13) return null;
+        }
+        if (HTML_PREFIX_RE.test(text)) return null;
+        return SVG_OPEN_RE.test(text) ? 'svg' : 'text';
+      } catch {
+        return null;
+      }
+    }
+
+    async function preflightValidateFile(file) {
+      if (!file || file.size <= 0) return 'File is empty';
+      if (file.size > MAX_UPLOAD_BYTES) return 'File exceeds 100 MiB limit';
+      if (!file.name || file.name.length > 255 || BIDI_OR_CTRL_RE.test(file.name)) return 'Filename contains unsafe control or bidi characters';
+      const dot = file.name.lastIndexOf('.');
+      const ext = dot > 0 ? file.name.slice(dot + 1).toLowerCase() : '';
+      if (!ext) return 'Filename must include an allowed extension';
+      const head = new Uint8Array(await file.slice(0, 512).arrayBuffer());
+      const sig = detectHeadType(head);
+      if (!sig) return 'Unrecognized or disallowed file signature';
+      if (!(EXT_BY_SIG[sig] || []).includes(ext)) return 'File bytes (' + sig + ') do not match .' + ext + ' extension';
+      if (sig === 'svg') {
+        if (file.size > 2 * 1024 * 1024) return 'SVG exceeds 2 MiB safety cap';
+        const fullSvg = await file.text();
+        if (SVG_ACTIVE_RE.test(fullSvg)) return 'SVG contains disallowed active content (script / event handler / foreignObject)';
+      }
+      return null;
+    }
+
     async function uploadFile(file) {
       const row = document.createElement('div');
       row.className = 'asset-card';
-      row.innerHTML = '<div class="asset-meta"><div class="asset-name"></div><div class="asset-sub">Uploading…</div></div>';
+      row.innerHTML = '<div class="asset-meta"><div class="asset-name"></div><div class="asset-sub">Validating signature…</div></div>';
       row.querySelector('.asset-name').textContent = file.name + ' (' + fmtBytes(file.size) + ')';
       $('queue').prepend(row);
+
+      const validationErr = await preflightValidateFile(file);
+      if (validationErr) {
+        row.querySelector('.asset-sub').textContent = 'Blocked (client pre-flight): ' + validationErr;
+        row.querySelector('.asset-sub').style.color = 'var(--down)';
+        toast('Blocked: ' + validationErr);
+        return;
+      }
+      row.querySelector('.asset-sub').textContent = 'Uploading…';
 
       const form = new FormData();
       form.append('file', file, file.name);

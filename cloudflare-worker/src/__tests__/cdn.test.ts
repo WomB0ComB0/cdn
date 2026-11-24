@@ -223,5 +223,20 @@ describe('cdn-worker hexagonal architecture (cdn.mikeodnis.dev)', () => {
     expect(res.status).toBe(200);
     expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
     expect(res.headers.get('Content-Security-Policy')).toBe("default-src 'none'; sandbox");
+
+    // Non-media / active-adjacent downloads force Content-Disposition: attachment
+    const zipEnv = createMockEnv({
+      'assets/user-1/bundle.zip': {
+        body: 'PK\x03\x04dummy',
+        contentType: 'application/zip',
+      },
+    });
+    const zipRes = await worker.fetch(
+      new Request('https://cdn.mikeodnis.dev/assets/user-1/bundle.zip'),
+      zipEnv,
+      ctx
+    );
+    expect(zipRes.status).toBe(200);
+    expect(zipRes.headers.get('Content-Disposition')).toBe('attachment');
   });
 });

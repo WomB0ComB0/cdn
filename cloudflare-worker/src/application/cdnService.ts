@@ -203,8 +203,19 @@ export function applySecurityHeaders(headers: Headers): void {
   headers.set('Cross-Origin-Resource-Policy', 'cross-origin');
   const contentType = (headers.get('Content-Type') || '').toLowerCase();
   if (contentType.includes('svg') || contentType.includes('html') || contentType.includes('xml')) {
-    // Prevent Stored XSS when rendering user-uploaded SVGs/XML directly on the CDN origin
+    // Prevent Stored XSS when rendering user-uploaded SVGs/XML/HTML directly on the CDN origin
     headers.set('Content-Security-Policy', "default-src 'none'; sandbox");
+  }
+  if (
+    contentType.includes('text/html') ||
+    contentType.includes('xhtml') ||
+    contentType.includes('application/xml') ||
+    contentType.includes('text/xml') ||
+    contentType.includes('application/zip') ||
+    contentType.includes('application/octet-stream')
+  ) {
+    // Force download instead of inline browser execution/rendering for active or opaque payloads
+    headers.set('Content-Disposition', 'attachment');
   }
 }
 
