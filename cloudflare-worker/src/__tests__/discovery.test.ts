@@ -49,6 +49,7 @@ describe('cdn.mikeodnis.dev Live Console, Upload Studio PWA, and LLM/Security Di
     const html = await htmlRes.text();
     expect(html).toContain('cdn.mikeodnis.dev');
     expect(html).toContain('*.mikeodnis.dev');
+    expect(html).toContain('class="light-rays"');
     expect(html).toContain('/upload');
     expect(html).toContain('application/ld+json');
 

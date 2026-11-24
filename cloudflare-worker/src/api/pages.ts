@@ -103,8 +103,9 @@ self.addEventListener('fetch', (event) => {
 
 const LIVE_CONSOLE_CSS = `:root {
   color-scheme: dark;
+  --light-rays: rgb(88 68 188);
   --canvas: #0c0c14;
-  --surface-1: #11111c;
+  --surface-1: rgba(17, 17, 28, 0.86);
   --surface-2: #161625;
   --surface-3: #1e1e32;
   --hairline: rgba(255, 255, 255, 0.08);
@@ -134,8 +135,56 @@ html, body {
   -webkit-font-smoothing: antialiased;
 }
 body {
-  background-image: radial-gradient(60rem 36rem at 50% -10%, rgba(167, 139, 250, 0.10), transparent 65%);
+  position: relative;
+  isolation: isolate;
   min-height: 100dvh;
+}
+.light-glows {
+  background-image:
+    radial-gradient(circle at 20% 15%, rgba(88, 68, 188, 0.054), transparent 70%),
+    radial-gradient(circle at 80% 10%, rgba(88, 68, 188, 0.042), transparent 75%);
+  background-image:
+    radial-gradient(circle at 20% 15%, oklch(from var(--light-rays) l c h / 5.4%), transparent 70%),
+    radial-gradient(circle at 80% 10%, oklch(from var(--light-rays) l c h / 4.2%), transparent 75%);
+}
+.light-rays {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+.light-rays > i {
+  --ray-cycle: calc(var(--ray-duration) * 1.1);
+  position: absolute;
+  top: -12%;
+  left: var(--ray-left);
+  width: var(--ray-width);
+  height: 70vh;
+  border-radius: 9999px;
+  background: linear-gradient(to bottom, rgba(88, 68, 188, 0.14), transparent);
+  background: linear-gradient(to bottom, oklch(from var(--light-rays) l c h / 14%), transparent);
+  filter: blur(20px);
+  opacity: 0;
+  translate: -50% 0;
+  rotate: var(--ray-rotate);
+  transform-origin: 50% 0;
+  animation: light-ray var(--ray-cycle) ease-in-out calc(var(--ray-delay) - var(--ray-cycle)) infinite;
+}
+@keyframes light-ray {
+  0% { opacity: 0; rotate: calc(var(--ray-rotate) - var(--ray-swing)); }
+  45.45% { opacity: var(--ray-peak); rotate: calc(var(--ray-rotate) + var(--ray-swing)); }
+  90.91%, 100% { opacity: 0; rotate: calc(var(--ray-rotate) - var(--ray-swing)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .light-rays > i {
+    animation-name: none !important;
+    opacity: calc(var(--ray-peak) * 0.6);
+  }
+}
+@media (forced-colors: active), print {
+  .light-glows { background-image: none; }
+  .light-rays { display: none; }
 }
 a { color: var(--brand-ink); text-decoration: none; }
 a:hover { text-decoration: underline; text-underline-offset: 4px; text-decoration-style: dotted; }
@@ -158,6 +207,7 @@ code, pre, kbd { font-family: var(--font-mono); }
 }
 .tile {
   background: var(--surface-1); border: 1px solid var(--hairline); border-radius: var(--radius); padding: 1.25rem;
+  backdrop-filter: blur(8px);
 }
 .tile:hover { border-color: var(--hairline-strong); }
 .grid { display: grid; gap: 1rem; }
@@ -211,6 +261,14 @@ footer {
   display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.75rem; font-size: 0.8rem; color: var(--faint);
 }
 `;
+
+const LIGHT_RAYS_HTML = `<div class="light-rays" aria-hidden="true">
+    <i style="--ray-left:90.5%;--ray-width:221px;--ray-rotate:-7.9deg;--ray-swing:2.5deg;--ray-duration:12s;--ray-delay:12.2s;--ray-peak:0.84"></i>
+    <i style="--ray-left:21.7%;--ray-width:272px;--ray-rotate:-24deg;--ray-swing:2deg;--ray-duration:17.2s;--ray-delay:4.7s;--ray-peak:0.72"></i>
+    <i style="--ray-left:38.8%;--ray-width:307px;--ray-rotate:10.6deg;--ray-swing:1.1deg;--ray-duration:16.5s;--ray-delay:11.6s;--ray-peak:0.73"></i>
+    <i style="--ray-left:53.5%;--ray-width:271px;--ray-rotate:16deg;--ray-swing:1.9deg;--ray-duration:15s;--ray-delay:2.9s;--ray-peak:0.86"></i>
+    <i style="--ray-left:20.6%;--ray-width:258px;--ray-rotate:12.4deg;--ray-swing:1.9deg;--ray-duration:15.1s;--ray-delay:1.3s;--ray-peak:0.81"></i>
+  </div>`;
 
 export function renderCdnDocsPage(): string {
   const config = JSON.stringify({
@@ -337,7 +395,8 @@ export function renderCdnHomePage(): string {
   <script type="application/ld+json">${jsonLd}</script>
   <style>${LIVE_CONSOLE_CSS}</style>
 </head>
-<body>
+<body class="light-glows">
+  ${LIGHT_RAYS_HTML}
   <div class="shell">
     <nav class="constellation" aria-label="*.mikeodnis.dev network">
       <span class="label-mono">*.mikeodnis.dev</span>
@@ -572,7 +631,8 @@ export function renderUploadStudioPage(): string {
     .hidden { display: none !important; }
   </style>
 </head>
-<body>
+<body class="light-glows">
+  ${LIGHT_RAYS_HTML}
   <div class="shell">
     <nav class="constellation" aria-label="Upload Studio navigation">
       <div class="row">
