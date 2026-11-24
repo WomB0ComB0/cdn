@@ -212,6 +212,50 @@ footer {
 }
 `;
 
+export function renderCdnDocsPage(): string {
+  const config = JSON.stringify({
+    url: '/openapi.yaml',
+    theme: 'deepSpace',
+    darkMode: true,
+    metaData: {
+      title: 'CDN Reference — cdn.mikeodnis.dev',
+    },
+  });
+
+  return `<!doctype html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CDN Reference — cdn.mikeodnis.dev</title>
+  <meta name="description" content="Interactive OpenAPI 3.1 reference for cdn.mikeodnis.dev — public R2 assets, HMAC-signed private files, and on-the-fly AVIF/WebP image transforms." />
+  <meta name="theme-color" content="#0c0c14" />
+  <link rel="canonical" href="${CDN_ORIGIN}/docs" />
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link rel="describedby" type="text/markdown" href="/llms.txt" />
+  <link rel="service-desc" type="application/yaml" href="/openapi.yaml" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="${CDN_ORIGIN}/docs" />
+  <meta property="og:title" content="CDN Reference — cdn.mikeodnis.dev" />
+  <meta property="og:description" content="Interactive OpenAPI 3.1 reference for cdn.mikeodnis.dev." />
+  <meta property="og:image" content="${CDN_ORIGIN}/opengraph-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:image" content="${CDN_ORIGIN}/twitter-image.png" />
+  <style>
+    body { margin: 0; background: #0c0c14; }
+  </style>
+</head>
+<body>
+  <script id="api-reference" data-configuration='${config}'></script>
+  <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference@latest/dist/browser/standalone.min.js" crossorigin></script>
+</body>
+</html>`;
+}
+
 export function renderCdnHomePage(): string {
   const jsonLd = JSON.stringify({
     '@context': 'https://schema.org',
@@ -321,6 +365,7 @@ export function renderCdnHomePage(): string {
             </p>
             <div class="actions">
               <a class="btn btn-brand" href="/upload">Open Upload Studio (PWA) →</a>
+              <a class="btn" href="/docs">OpenAPI Docs (Scalar)</a>
               <a class="btn" href="${API_ORIGIN}/docs">Media API Docs</a>
               <a class="btn" href="/llms.txt">llms.txt</a>
               <a class="btn" href="/openapi.yaml">openapi.yaml</a>

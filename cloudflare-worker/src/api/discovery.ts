@@ -38,6 +38,7 @@ export const CDN_ROBOTS_TXT = `# cdn.mikeodnis.dev — Edge Media Delivery & Ass
 
 User-agent: *
 Allow: /
+Allow: /docs
 Allow: /upload
 Allow: /llms.txt
 Allow: /llms-full.txt
@@ -77,6 +78,11 @@ export const CDN_SITEMAP_XML = `<?xml version="1.0" encoding="UTF-8"?>
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>${CDN_ORIGIN}/docs</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>${CDN_ORIGIN}/llms.txt</loc>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
@@ -101,6 +107,7 @@ export const CDN_LLMS_TXT = `# cdn.mikeodnis.dev
 ## Key Endpoints
 
 - [CDN Console & Reference](${CDN_ORIGIN}/): Human-readable overview, live edge telemetry, and working examples.
+- [Interactive OpenAPI Docs (Scalar)](${CDN_ORIGIN}/docs): Interactive Scalar OpenAPI 3.1 explorer for CDN routes.
 - [Upload Studio PWA](${CDN_ORIGIN}/upload): Installable web/mobile app for uploading, managing, signing, and purging R2 assets anywhere.
 - [Full LLM Technical Reference](${CDN_ORIGIN}/llms-full.txt): Complete route specs, HMAC signing algorithm, image transform parameters, rate limits, and error codes.
 - [OpenAPI 3.1 Specification](${CDN_ORIGIN}/openapi.yaml): Machine-readable API contract for edge delivery and media management.
@@ -353,6 +360,7 @@ export const CDN_SERVICE_DESCRIPTOR = {
     metrics: '/health/metrics',
   },
   discovery: {
+    docs: `${CDN_ORIGIN}/docs`,
     llms: `${CDN_ORIGIN}/llms.txt`,
     llms_full: `${CDN_ORIGIN}/llms-full.txt`,
     openapi: `${CDN_ORIGIN}/openapi.yaml`,

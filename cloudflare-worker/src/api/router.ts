@@ -31,6 +31,7 @@ import {
 import {
   CDN_MANIFEST_JSON,
   CDN_SW_JS,
+  renderCdnDocsPage,
   renderCdnHomePage,
   renderUploadStudioPage,
 } from './pages.js';
@@ -65,6 +66,19 @@ const CSP_HTML_UPLOAD = [
   "frame-ancestors 'none'",
 ].join('; ');
 
+const CSP_HTML_DOCS = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
+  "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com",
+  "font-src 'self' data: https://fonts.gstatic.com https://cdn.jsdelivr.net",
+  "img-src 'self' data: blob: https:",
+  `connect-src 'self' ${API_ORIGIN} https://cdn.mikeodnis.dev https://cdn.jsdelivr.net`,
+  "worker-src 'self' blob:",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "frame-ancestors 'none'",
+].join('; ');
+
 function staticResponse(
   method: HttpMethod,
   body: string | Uint8Array,
@@ -72,6 +86,7 @@ function staticResponse(
   options: {
     cacheControl: string;
     corp?: 'same-site' | 'cross-origin';
+    cors?: boolean;
     csp?: string;
     linkHeader?: boolean;
   }
@@ -87,6 +102,9 @@ function staticResponse(
     'Cross-Origin-Opener-Policy': 'same-origin',
     'Cross-Origin-Resource-Policy': options.corp ?? 'same-site',
   });
+  if (options.cors) {
+    applyCorsHeaders(headers);
+  }
   if (options.csp) {
     headers.set('Content-Security-Policy', options.csp);
   }
@@ -165,6 +183,14 @@ export function createRouter(
         return staticResponse(method, renderUploadStudioPage(), 'text/html; charset=utf-8', {
           cacheControl: 'public, max-age=300',
           csp: CSP_HTML_UPLOAD,
+        });
+      }
+
+      if (path === '/docs') {
+        return staticResponse(method, renderCdnDocsPage(), 'text/html; charset=utf-8', {
+          cacheControl: 'public, max-age=300',
+          csp: CSP_HTML_DOCS,
+          linkHeader: true,
         });
       }
 
@@ -278,6 +304,7 @@ export function createRouter(
         return staticResponse(method, CDN_OPENAPI_YAML, 'application/yaml; charset=utf-8', {
           cacheControl: 'public, max-age=3600',
           corp: 'cross-origin',
+          cors: true,
         });
       }
 

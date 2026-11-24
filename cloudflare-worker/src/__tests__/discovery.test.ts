@@ -125,6 +125,7 @@ describe('cdn.mikeodnis.dev Live Console, Upload Studio PWA, and LLM/Security Di
     const routes: Array<[string, string, string]> = [
       ['/llms.txt', 'text/markdown', '# cdn.mikeodnis.dev'],
       ['/llms-full.txt', 'text/markdown', 'HMAC-SHA256'],
+      ['/docs', 'text/html', '@scalar/api-reference'],
       ['/.well-known/security.txt', 'text/plain', 'Contact: mailto:mike@mikeodnis.dev'],
       ['/.well-known/assetlinks.json', 'application/json', 'dev.mikeodnis.cdn'],
       ['/robots.txt', 'text/plain', 'Sitemap: https://cdn.mikeodnis.dev/sitemap.xml'],

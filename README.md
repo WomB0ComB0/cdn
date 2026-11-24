@@ -194,6 +194,7 @@ Pushing an annotated SemVer tag (`vX.Y.Z`) or triggering `workflow_dispatch` run
 | Route | Methods | Behavior |
 | :--- | :--- | :--- |
 | `/` | `GET`, `HEAD` | Content-negotiated: Live Console HTML docs + live `/health/metrics` + JSON-LD (`SoftwareApplication`, `FAQPage`) for browsers; JSON service descriptor for `Accept: application/json` clients |
+| `/docs` | `GET`, `HEAD` | Interactive **Scalar OpenAPI 3.1** visualizer rendering `/openapi.yaml` (`deepSpace` dark theme) |
 | `/upload` | `GET`, `HEAD` | Installable **Upload Studio PWA** (JWT login + refresh rotation or Bearer token, drag-and-drop, camera capture, clipboard paste, Android Share Sheet receiver, public/private uploads, 1-tap signed URLs & asset manager) |
 | `/manifest.webmanifest`, `/sw.js` | `GET`, `HEAD` | PWA manifest with **Web Share Target API** (`POST /upload-share`) + Service Worker handoff |
 | `/llms.txt`, `/llms-full.txt`, `/openapi.yaml` | `GET`, `HEAD` | Concise and full LLM/AEO guides + OpenAPI 3.1 contract |
