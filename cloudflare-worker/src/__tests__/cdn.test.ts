@@ -114,9 +114,9 @@ describe('cdn-worker hexagonal architecture (cdn.mikeodnis.dev)', () => {
     expect(waited.length).toBe(1);
     await Promise.all(waited);
 
-    // Second GET hits edge cache
+    // Second GET with arbitrary cache-buster query string still hits canonical edge cache
     const cached = await worker.fetch(
-      new Request('https://cdn.mikeodnis.dev/assets/user-1/logo.png'),
+      new Request('https://cdn.mikeodnis.dev/assets/user-1/logo.png?cb=bypass-attempt'),
       env,
       ctx
     );
@@ -209,6 +209,14 @@ describe('cdn-worker hexagonal architecture (cdn.mikeodnis.dev)', () => {
       ctx
     );
     expect(otherPrefix.status).toBe(403);
+
+    // Non-raster files (e.g. SVG/PDF/ZIP) must never be forwarded to imgproxy (415)
+    const svgTransform = await worker.fetch(
+      new Request('https://cdn.mikeodnis.dev/img/assets/u1/logo.svg?w=400'),
+      configured,
+      ctx
+    );
+    expect(svgTransform.status).toBe(415);
 
     // NUL byte or double-slash path injection returns 400
     const nulPath = await worker.fetch(

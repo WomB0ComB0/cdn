@@ -68,6 +68,9 @@ export interface SignedRequestParams {
   readonly signature: string;
 }
 
+const EXPIRES_RE = /^\d{1,12}$/;
+const BASE64URL_SIG_RE = /^[A-Za-z0-9_-]{32,128}$/;
+
 export function parseSignedRequest(
   asset: AssetPath,
   signature: string | null,
@@ -77,8 +80,11 @@ export function parseSignedRequest(
   if (!isNonEmptyString(signature) || !isNonEmptyString(expiresRaw)) {
     throw new CdnError(403, 'Missing signature or expiration');
   }
+  if (!EXPIRES_RE.test(expiresRaw) || !BASE64URL_SIG_RE.test(signature)) {
+    throw new CdnError(403, 'Invalid signature format');
+  }
 
-  const expiresUnix = Number.parseInt(expiresRaw, 10);
+  const expiresUnix = Number(expiresRaw);
   if (!isFiniteNumber(expiresUnix) || nowSeconds > expiresUnix) {
     throw new CdnError(403, 'Signature expired');
   }
@@ -110,6 +116,8 @@ export interface ImageTransform {
   readonly format: ImageFormat;
 }
 
+const RASTER_SOURCE_EXT_RE = /\.(?:jpe?g|png|gif|webp|avif)$/i;
+
 export function parseImageTransform(
   asset: AssetPath,
   query: { width?: string | null; height?: string | null; quality?: string | null; format?: string | null }
@@ -118,9 +126,12 @@ export function parseImageTransform(
     ? asset.objectKey.slice('img/'.length)
     : asset.objectKey;
 
-  // Fail-closed allowlist: only public assets/* keys may ever be sent to imgproxy.
+  // Fail-closed allowlist: only public raster assets/* images may ever be sent to imgproxy.
   if (!isNonEmptyString(sourceKey) || !sourceKey.startsWith('assets/')) {
     throw new CdnError(403, 'Forbidden');
+  }
+  if (!RASTER_SOURCE_EXT_RE.test(sourceKey)) {
+    throw new CdnError(415, 'Unsupported image format for transform');
   }
 
   return {

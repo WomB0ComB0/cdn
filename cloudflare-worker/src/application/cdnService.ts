@@ -38,8 +38,11 @@ export class CdnService {
 
   async servePublicAsset(request: Request, method: HttpMethod, asset: AssetPath): Promise<Response> {
     const hasRange = request.headers.has('range');
+    // Canonicalize cache key without query strings so ?cb=<random> cannot bypass Edge Cache and hammer R2.
+    const reqUrl = new URL(request.url);
+    const cacheKey = new Request(`${reqUrl.origin}/${asset.objectKey}`, { method: 'GET' });
     if (!hasRange && method === 'GET') {
-      const cached = await this.deps.edgeCache.match(request);
+      const cached = await this.deps.edgeCache.match(cacheKey);
       if (cached) {
         return cached;
       }
@@ -63,7 +66,7 @@ export class CdnService {
     });
 
     if (response.status === 200 && method === 'GET') {
-      this.deps.edgeCache.put(request, response.clone());
+      this.deps.edgeCache.put(cacheKey, response.clone());
     }
 
     return response;

@@ -932,7 +932,8 @@ export function renderUploadStudioPage(): string {
         const card = document.createElement('div');
         card.className = 'asset-card';
         const isImg = (a.mime_type || '').startsWith('image/');
-        const thumb = isImg && a.visibility === 'public'
+        const isRasterImg = isImg && a.mime_type !== 'image/svg+xml' && !a.mime_type.includes('icon');
+        const thumb = isRasterImg && a.visibility === 'public'
           ? Object.assign(document.createElement('img'), { className: 'asset-thumb', src: CDN + '/img/' + a.key + '?w=96&q=75&f=webp', alt: a.filename, loading: 'lazy' })
           : Object.assign(document.createElement('div'), { className: 'asset-thumb', textContent: (a.mime_type || 'file').split('/').pop().slice(0, 5).toUpperCase() });
         const meta = document.createElement('div');
@@ -958,8 +959,10 @@ export function renderUploadStudioPage(): string {
         };
 
         btns.append(mkBtn('Copy URL', 'btn-brand', () => copyText(a.url, 'URL')));
-        if (isImg && a.visibility === 'public') {
+        if (isRasterImg && a.visibility === 'public') {
           btns.append(mkBtn('WebP 800w', '', () => copyText(CDN + '/img/' + a.key + '?w=800&q=85&f=webp', 'resized URL')));
+        }
+        if (isImg && a.visibility === 'public') {
           btns.append(mkBtn('Markdown', '', () => copyText('![' + (a.filename || 'image') + '](' + a.url + ')', 'Markdown')));
         }
         if (a.visibility === 'private') {
@@ -1031,7 +1034,18 @@ export function renderUploadStudioPage(): string {
       toast('JWT session active');
     };
 
-    $('logout-btn').onclick = () => { saveSession(null); toast('Signed out'); };
+    $('logout-btn').onclick = async () => {
+      const rt = session?.refresh_token;
+      saveSession(null);
+      if (rt) {
+        fetch(API + '/v1/core/auth/logout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refresh_token: rt }),
+        }).catch(() => {});
+      }
+      toast('Signed out');
+    };
     $('refresh-btn').onclick = loadAssets;
     $('search').oninput = renderAssets;
     $('pick-btn').onclick = (e) => { e.stopPropagation(); $('file-input').click(); };
