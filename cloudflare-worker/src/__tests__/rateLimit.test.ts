@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test';
+import { beforeEach, describe, expect, test } from 'bun:test';
 import {
   type CfRateLimitBinding,
   CloudflareRateLimiter,
@@ -11,7 +11,29 @@ import {
 } from '../domain/rateLimit.js';
 import worker, { type WorkerEnv } from '../index.js';
 
+function createMockCache(): Cache {
+  const store = new Map<string, Response>();
+  return {
+    async match(req: RequestInfo | URL) {
+      const key = typeof req === 'string' ? req : req instanceof URL ? req.toString() : req.url;
+      return store.get(key)?.clone();
+    },
+    async put(req: RequestInfo | URL, res: Response) {
+      const key = typeof req === 'string' ? req : req instanceof URL ? req.toString() : req.url;
+      store.set(key, res);
+    },
+    async delete() {
+      return false;
+    },
+  } as unknown as Cache;
+}
+
 describe('CDN Edge Rate Limiter (Cloudflare bindings + isolate sliding-window fallback)', () => {
+  beforeEach(() => {
+    (globalThis as unknown as { caches: { default: Cache } }).caches = {
+      default: createMockCache(),
+    };
+  });
   test('classifies CDN paths into tiered policies and exempts health/OPTIONS', () => {
     expect(classifyCdnRateLimitPolicy('OPTIONS', '/assets/a.png')).toBeNull();
     expect(classifyCdnRateLimitPolicy('GET', '/health')).toBeNull();
