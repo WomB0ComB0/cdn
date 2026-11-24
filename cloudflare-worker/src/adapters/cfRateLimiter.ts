@@ -160,11 +160,44 @@ export class CloudflareRateLimiter implements RateLimiterPort {
   }
 }
 
+const ENCODER = new TextEncoder();
+
+type SubtleWithTimingSafe = SubtleCrypto & {
+  timingSafeEqual?: (a: ArrayBufferView | ArrayBuffer, b: ArrayBufferView | ArrayBuffer) => boolean;
+};
+
+function timingSafeEqualString(a: string, b: string): boolean {
+  const bufA = ENCODER.encode(a);
+  const bufB = ENCODER.encode(b);
+  if (bufA.byteLength !== bufB.byteLength) return false;
+  const subtle = crypto.subtle as SubtleWithTimingSafe;
+  if (typeof subtle.timingSafeEqual === 'function') {
+    return subtle.timingSafeEqual(bufA, bufB);
+  }
+  let diff = 0;
+  for (let i = 0; i < bufA.byteLength; i++) {
+    diff |= bufA[i]! ^ bufB[i]!;
+  }
+  return diff === 0;
+}
+
 /**
- * Extract the non-spoofable edge client IP on Cloudflare Workers.
- * Prioritizes `CF-Connecting-IP` (overwritten by Cloudflare edge) before proxy fallbacks.
+ * Extract the non-spoofable client IP on Cloudflare Workers:
+ * - When proxied through our trusted Railway Caddy gateway with a valid shared
+ *   `X-Gateway-Proxy-Secret` (constant-time verified), trust `X-Gateway-Client-IP` so
+ *   every visitor gets their own rate-limit bucket instead of sharing Caddy's egress IP.
+ * - Otherwise (direct Cloudflare Custom Domain or direct `*.workers.dev`), ignore
+ *   `X-Gateway-Client-IP` and prioritize `CF-Connecting-IP` (overwritten by Cloudflare edge).
  */
-export function extractCdnClientKey(request: Request): string {
+export function extractCdnClientKey(request: Request, gatewayProxySecret?: string): string {
+  if (gatewayProxySecret && gatewayProxySecret.length >= 16) {
+    const presented = request.headers.get('x-gateway-proxy-secret') || '';
+    if (presented && timingSafeEqualString(presented, gatewayProxySecret)) {
+      const gwIp = request.headers.get('x-gateway-client-ip')?.trim();
+      if (gwIp) return `ip:${gwIp.slice(0, 64)}`;
+    }
+  }
+
   const cfIp = request.headers.get('cf-connecting-ip')?.trim();
   if (cfIp) return `ip:${cfIp.slice(0, 64)}`;
 

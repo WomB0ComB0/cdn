@@ -125,6 +125,7 @@ function prefersJson(request: Request): boolean {
 
 export interface RouterOptions {
   readonly rateLimiter?: RateLimiterPort;
+  readonly gatewayProxySecret?: string;
 }
 
 export function createRouter(
@@ -317,7 +318,10 @@ export function createRouter(
       if (options.rateLimiter) {
         const policy = classifyCdnRateLimitPolicy(request.method, path);
         if (policy) {
-          rateDecision = await options.rateLimiter.check(extractCdnClientKey(request), policy);
+          rateDecision = await options.rateLimiter.check(
+            extractCdnClientKey(request, options.gatewayProxySecret),
+            policy
+          );
           if (!rateDecision.allowed) {
             const headers = new Headers({ 'Content-Type': 'application/json' });
             applyCorsHeaders(headers);

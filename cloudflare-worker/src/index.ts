@@ -20,6 +20,7 @@ export interface WorkerEnv {
   R2_BUCKET: R2Bucket;
   R2_BUCKET_NAME?: string;
   SIGNING_SECRET?: string;
+  GATEWAY_PROXY_SECRET?: string;
   IMGPROXY_URL?: string;
   CACHE_TTL_IMMUTABLE?: string;
   CACHE_TTL_PRIVATE?: string;
@@ -52,6 +53,9 @@ export default {
       isolateFallbackCounter
     );
 
-    return createRouter(service, { rateLimiter })(request);
+    return createRouter(service, {
+      rateLimiter,
+      ...(env.GATEWAY_PROXY_SECRET ? { gatewayProxySecret: env.GATEWAY_PROXY_SECRET } : {}),
+    })(request);
   },
 };

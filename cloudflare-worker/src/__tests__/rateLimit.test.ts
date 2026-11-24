@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, test } from 'bun:test';
 import {
   type CfRateLimitBinding,
   CloudflareRateLimiter,
+  extractCdnClientKey,
   IsolateSlidingWindowCounter,
 } from '../adapters/cfRateLimiter.js';
 import {
@@ -134,5 +135,28 @@ describe('CDN Edge Rate Limiter (Cloudflare bindings + isolate sliding-window fa
     expect(m.isolateFallbackHits).toBe(4);
     expect(m.limited429).toBe(2);
     expect(m.limitedByTier['img']).toBe(2);
+  });
+
+  test('trusts X-Gateway-Client-IP only when X-Gateway-Proxy-Secret matches in constant time', () => {
+    const secret = 'gateway-proxy-secret-32-bytes-minimum!';
+    const trustedReq = new Request('https://cdn.mikeodnis.dev/assets/u1/a.png', {
+      headers: {
+        'cf-connecting-ip': '35.1.2.3',
+        'x-gateway-proxy-secret': secret,
+        'x-gateway-client-ip': '198.51.100.88',
+      },
+    });
+    expect(extractCdnClientKey(trustedReq, secret)).toBe('ip:198.51.100.88');
+
+    // Forged or missing secret must NEVER trust X-Gateway-Client-IP -> falls back to CF-Connecting-IP
+    const spoofedReq = new Request('https://cdn.mikeodnis.dev/assets/u1/a.png', {
+      headers: {
+        'cf-connecting-ip': '203.0.113.9',
+        'x-gateway-proxy-secret': 'wrong-secret-value-attempt-1234567890',
+        'x-gateway-client-ip': '198.51.100.88',
+      },
+    });
+    expect(extractCdnClientKey(spoofedReq, secret)).toBe('ip:203.0.113.9');
+    expect(extractCdnClientKey(spoofedReq, undefined)).toBe('ip:203.0.113.9');
   });
 });
