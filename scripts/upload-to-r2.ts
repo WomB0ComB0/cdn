@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { resolveContainedPath } from '@resq-systems/security/paths';
 import mime from 'mime-types';
 import type { AssetManifest } from './generate-asset-manifest.js';
 
@@ -55,7 +56,13 @@ async function main(): Promise<void> {
   const manifest = JSON.parse(fs.readFileSync(MANIFEST_FILE, 'utf-8')) as AssetManifest;
 
   for (const [original, info] of Object.entries(manifest)) {
-    const localPath = path.join(STATIC_DIR, original);
+    const localPath = resolveContainedPath(STATIC_DIR, original, { allowBaseItself: false });
+    if (!localPath) {
+      throw new Error(`Refusing manifest entry outside static directory: ${original}`);
+    }
+    if (!info.hashed || info.hashed.includes('..') || info.hashed.includes('\\') || info.hashed.startsWith('/')) {
+      throw new Error(`Refusing unsafe remote manifest key: ${info.hashed}`);
+    }
     const remotePath = `assets/${info.hashed}`;
     const detected = mime.lookup(original);
     const contentType = typeof detected === 'string' ? detected : 'application/octet-stream';

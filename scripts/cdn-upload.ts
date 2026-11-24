@@ -41,8 +41,14 @@ const SVG_ACTIVE_RE =
 
 function decodeNumericEntities(input: string): string {
   return input
-    .replace(/&#x([0-9a-f]+);/gi, (_, hex: string) => String.fromCodePoint(Number.parseInt(hex, 16)))
-    .replace(/&#([0-9]+);/g, (_, dec: string) => String.fromCodePoint(Number.parseInt(dec, 10)));
+    .replace(/&#x([0-9a-f]+);/gi, (match: string, hex: string) => {
+      const cp = Number.parseInt(hex, 16);
+      return cp >= 0 && cp <= 0x10ffff ? String.fromCodePoint(cp) : match;
+    })
+    .replace(/&#([0-9]+);/g, (match: string, dec: string) => {
+      const cp = Number.parseInt(dec, 10);
+      return cp >= 0 && cp <= 0x10ffff ? String.fromCodePoint(cp) : match;
+    });
 }
 
 interface Session {

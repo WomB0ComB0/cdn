@@ -831,8 +831,14 @@ export function renderUploadStudioPage(): string {
     const MP4_BRANDS = new Set(['isom','iso2','iso4','iso5','iso6','mp41','mp42','mmp4','avc1','dash','M4V ','M4A ','M4P ','M4B ','qt  ','3gp4','3gp5','3g2a','MSNV']);
     function decodeEntities(s) {
       return s
-        .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
-        .replace(/&#([0-9]+);/g, (_, d) => String.fromCodePoint(parseInt(d, 10)));
+        .replace(/&#x([0-9a-f]+);/gi, (m, h) => {
+          const cp = parseInt(h, 16);
+          return cp >= 0 && cp <= 0x10ffff ? String.fromCodePoint(cp) : m;
+        })
+        .replace(/&#([0-9]+);/g, (m, d) => {
+          const cp = parseInt(d, 10);
+          return cp >= 0 && cp <= 0x10ffff ? String.fromCodePoint(cp) : m;
+        });
     }
 
     function eqBytes(buf, off, seq) {
@@ -841,7 +847,20 @@ export function renderUploadStudioPage(): string {
       return true;
     }
 
-    function detectHeadType(u8) {
+    function decodeUtf8Head(u8, wasTruncated) {
+      const dec = new TextDecoder('utf-8', { fatal: true });
+      const maxTrim = wasTruncated ? Math.min(3, u8.length) : 0;
+      for (let trim = 0; trim <= maxTrim; trim++) {
+        try {
+          return dec.decode(u8.subarray(0, u8.length - trim));
+        } catch {
+          // Retry without trailing split multi-byte UTF-8 rune
+        }
+      }
+      return null;
+    }
+
+    function detectHeadType(u8, wasTruncated) {
       if (eqBytes(u8, 0, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) return 'png';
       if (eqBytes(u8, 0, [0xff, 0xd8, 0xff])) return 'jpeg';
       if (eqBytes(u8, 0, [0x47, 0x49, 0x46, 0x38])) return 'gif';
@@ -860,17 +879,14 @@ export function renderUploadStudioPage(): string {
         if (MP4_BRANDS.has(b)) return 'mp4';
         return null;
       }
-      try {
-        const text = new TextDecoder('utf-8', { fatal: true }).decode(u8.subarray(0, 512));
-        for (let i = 0; i < text.length; i++) {
-          const c = text.charCodeAt(i);
-          if (c < 32 && c !== 9 && c !== 10 && c !== 12 && c !== 13) return null;
-        }
-        if (HTML_PREFIX_RE.test(text)) return null;
-        return SVG_OPEN_RE.test(text) ? 'svg' : 'text';
-      } catch {
-        return null;
+      const text = decodeUtf8Head(u8.subarray(0, 512), wasTruncated);
+      if (text === null) return null;
+      for (let i = 0; i < text.length; i++) {
+        const c = text.charCodeAt(i);
+        if (c < 32 && c !== 9 && c !== 10 && c !== 12 && c !== 13) return null;
       }
+      if (HTML_PREFIX_RE.test(text)) return null;
+      return SVG_OPEN_RE.test(text) ? 'svg' : 'text';
     }
 
     async function preflightValidateFile(file) {
@@ -881,7 +897,7 @@ export function renderUploadStudioPage(): string {
       const ext = dot > 0 ? file.name.slice(dot + 1).toLowerCase() : '';
       if (!ext) return 'Filename must include an allowed extension';
       const head = new Uint8Array(await file.slice(0, 512).arrayBuffer());
-      const sig = detectHeadType(head);
+      const sig = detectHeadType(head, file.size > 512);
       if (!sig) return 'Unrecognized or disallowed file signature';
       if (!(EXT_BY_SIG[sig] || []).includes(ext)) return 'File bytes (' + sig + ') do not match .' + ext + ' extension';
       if (sig === 'svg') {
@@ -901,20 +917,20 @@ export function renderUploadStudioPage(): string {
       row.querySelector('.asset-name').textContent = file.name + ' (' + fmtBytes(file.size) + ')';
       $('queue').prepend(row);
 
-      const validationErr = await preflightValidateFile(file);
-      if (validationErr) {
-        row.querySelector('.asset-sub').textContent = 'Blocked (client pre-flight): ' + validationErr;
-        row.querySelector('.asset-sub').style.color = 'var(--down)';
-        toast('Blocked: ' + validationErr);
-        return;
-      }
-      row.querySelector('.asset-sub').textContent = 'Uploading…';
-
-      const form = new FormData();
-      form.append('file', file, file.name);
-      form.append('visibility', $('visibility').value);
-
       try {
+        const validationErr = await preflightValidateFile(file);
+        if (validationErr) {
+          row.querySelector('.asset-sub').textContent = 'Blocked (client pre-flight): ' + validationErr;
+          row.querySelector('.asset-sub').style.color = 'var(--down)';
+          toast('Blocked: ' + validationErr);
+          return;
+        }
+        row.querySelector('.asset-sub').textContent = 'Uploading…';
+
+        const form = new FormData();
+        form.append('file', file, file.name);
+        form.append('visibility', $('visibility').value);
+
         const res = await apiFetch('/v1/media/upload', { method: 'POST', body: form });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
