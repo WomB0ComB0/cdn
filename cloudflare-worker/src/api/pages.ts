@@ -76,7 +76,7 @@ self.addEventListener('fetch', (event) => {
       try {
         const formData = await event.request.formData();
         const file = formData.get('file');
-        if (file && typeof file === 'object' && 'arrayBuffer' in file) {
+        if (file && typeof file === 'object' && 'arrayBuffer' in file && file.size > 0 && file.size <= 100 * 1024 * 1024) {
           const cache = await caches.open(SHARE_CACHE);
           const buf = await file.arrayBuffer();
           const headers = new Headers({
@@ -807,8 +807,14 @@ export function renderUploadStudioPage(): string {
     };
     const BIDI_OR_CTRL_RE = /[\u0000-\u001F\u007F\u061C\u200E\u200F\u202A-\u202E\u2066-\u2069]/;
     const SVG_OPEN_RE = /^\s*(?:<\?xml[^>]*\?>\s*)?(?:<!DOCTYPE\s+svg[^>]*>\s*)?(?:<!--[\s\S]*?-->\s*)*<svg\b/i;
-    const SVG_ACTIVE_RE = /<\s*(?:script|foreignobject|iframe|object|embed|applet|meta)\b|<!\s*entity\b|\bon[a-z]{2,32}\s*=|(?:javascript|vbscript)\s*:|data\s*:\s*text\/html/i;
+    const SVG_ACTIVE_RE = /<\s*(?:script|foreignobject|iframe|object|embed|applet|meta|animate|animatemotion|animatetransform|set|handler)\b|<!\s*entity\b|<!\s*doctype\s+[^>]+\[|\bon[a-z]{2,32}\s*=|(?:javascript|vbscript)\s*:|data\s*:\s*(?:text\/html|image\/svg\+xml)|<\s*use\b[^>]*\b(?:xlink:)?href\s*=\s*["']?\s*(?:https?:|\/\/|data:)|@import\b|expression\s*\(/i;
     const HTML_PREFIX_RE = /^\s*(?:<!doctype\s+html|<html\b|<script\b|<iframe\b|<\?php\b)/i;
+    const MP4_BRANDS = new Set(['isom','iso2','iso4','iso5','iso6','mp41','mp42','mmp4','avc1','dash','M4V ','M4A ','M4P ','M4B ','qt  ','3gp4','3gp5','3g2a','MSNV']);
+    function decodeEntities(s) {
+      return s
+        .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
+        .replace(/&#([0-9]+);/g, (_, d) => String.fromCodePoint(parseInt(d, 10)));
+    }
 
     function eqBytes(buf, off, seq) {
       if (buf.length < off + seq.length) return false;
@@ -832,7 +838,8 @@ export function renderUploadStudioPage(): string {
       if (eqBytes(u8, 4, [0x66, 0x74, 0x79, 0x70]) && u8.length >= 12) {
         const b = String.fromCharCode(u8[8], u8[9], u8[10], u8[11]);
         if (['avif', 'avis', 'mif1', 'msf1'].includes(b)) return 'avif';
-        return 'mp4';
+        if (MP4_BRANDS.has(b)) return 'mp4';
+        return null;
       }
       try {
         const text = new TextDecoder('utf-8', { fatal: true }).decode(u8.subarray(0, 512));
@@ -861,7 +868,9 @@ export function renderUploadStudioPage(): string {
       if (sig === 'svg') {
         if (file.size > 2 * 1024 * 1024) return 'SVG exceeds 2 MiB safety cap';
         const fullSvg = await file.text();
-        if (SVG_ACTIVE_RE.test(fullSvg)) return 'SVG contains disallowed active content (script / event handler / foreignObject)';
+        if (SVG_ACTIVE_RE.test(fullSvg) || SVG_ACTIVE_RE.test(decodeEntities(fullSvg))) {
+          return 'SVG contains disallowed active content (script / event handler / animation / external use)';
+        }
       }
       return null;
     }

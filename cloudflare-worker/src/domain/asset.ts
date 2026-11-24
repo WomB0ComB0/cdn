@@ -22,6 +22,8 @@ export class CdnError extends Error {
   }
 }
 
+const UNSAFE_PATH_CHARS = /[\u0000-\u001f\u007f\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]/;
+
 export class AssetPath {
   private constructor(
     public readonly pathname: Pathname,
@@ -36,7 +38,13 @@ export class AssetPath {
       throw new CdnError(400, 'Bad Request');
     }
 
-    if (decoded.includes('..') || decoded.includes('\\')) {
+    if (
+      decoded.includes('..') ||
+      decoded.includes('\\') ||
+      decoded.includes('//') ||
+      UNSAFE_PATH_CHARS.test(decoded) ||
+      UNSAFE_PATH_CHARS.test(rawPathname)
+    ) {
       throw new CdnError(400, 'Bad Request');
     }
 
@@ -110,7 +118,8 @@ export function parseImageTransform(
     ? asset.objectKey.slice('img/'.length)
     : asset.objectKey;
 
-  if (!isNonEmptyString(sourceKey) || sourceKey.startsWith('private/')) {
+  // Fail-closed allowlist: only public assets/* keys may ever be sent to imgproxy.
+  if (!isNonEmptyString(sourceKey) || !sourceKey.startsWith('assets/')) {
     throw new CdnError(403, 'Forbidden');
   }
 

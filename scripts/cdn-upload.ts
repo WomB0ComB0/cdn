@@ -37,7 +37,13 @@ const RESQ_ALLOWED_TYPES: readonly FileTypeName[] = [
 ];
 
 const SVG_ACTIVE_RE =
-  /<\s*(?:script|foreignobject|iframe|object|embed|applet|meta)\b|<!\s*entity\b|\bon[a-z]{2,32}\s*=|(?:javascript|vbscript)\s*:|data\s*:\s*text\/html/i;
+  /<\s*(?:script|foreignobject|iframe|object|embed|applet|meta|animate|animatemotion|animatetransform|set|handler)\b|<!\s*entity\b|<!\s*doctype\s+[^>]+\[|\bon[a-z]{2,32}\s*=|(?:javascript|vbscript)\s*:|data\s*:\s*(?:text\/html|image\/svg\+xml)|<\s*use\b[^>]*\b(?:xlink:)?href\s*=\s*["']?\s*(?:https?:|\/\/|data:)|@import\b|expression\s*\(/i;
+
+function decodeNumericEntities(input: string): string {
+  return input
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex: string) => String.fromCodePoint(Number.parseInt(hex, 16)))
+    .replace(/&#([0-9]+);/g, (_, dec: string) => String.fromCodePoint(Number.parseInt(dec, 10)));
+}
 
 interface Session {
   access_token: string;
@@ -142,8 +148,8 @@ async function preflightValidateLocalFile(
       return { ok: false, reason: 'SVG exceeds 2 MiB safety cap' };
     }
     const svgText = await file.text();
-    if (SVG_ACTIVE_RE.test(svgText)) {
-      return { ok: false, reason: 'SVG contains disallowed active content (script/event handler/XXE)' };
+    if (SVG_ACTIVE_RE.test(svgText) || SVG_ACTIVE_RE.test(decodeNumericEntities(svgText))) {
+      return { ok: false, reason: 'SVG contains disallowed active content (script/event handler/XXE/external use)' };
     }
   }
 

@@ -201,6 +201,22 @@ describe('cdn-worker hexagonal architecture (cdn.mikeodnis.dev)', () => {
       ctx
     );
     expect(res403.status).toBe(403);
+
+    // Fail-closed allowlist: non-assets/* prefixes are also forbidden on /img/
+    const otherPrefix = await worker.fetch(
+      new Request('https://cdn.mikeodnis.dev/img/backups/u1/secret.png?w=400'),
+      configured,
+      ctx
+    );
+    expect(otherPrefix.status).toBe(403);
+
+    // NUL byte or double-slash path injection returns 400
+    const nulPath = await worker.fetch(
+      new Request('https://cdn.mikeodnis.dev/assets/u1/pic%00.png'),
+      configured,
+      ctx
+    );
+    expect(nulPath.status).toBe(400);
   });
 
   test('sandboxes SVG uploads with strict CSP to prevent Stored XSS', async () => {
