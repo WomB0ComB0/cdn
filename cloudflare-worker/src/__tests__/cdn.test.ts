@@ -69,6 +69,8 @@ describe('cdn-worker hexagonal architecture (cdn.mikeodnis.dev)', () => {
 
     const health = await worker.fetch(new Request('https://cdn.mikeodnis.dev/health'), env, ctx);
     expect(health.status).toBe(200);
+    expect(health.headers.get('Cache-Control')).toBe('no-store');
+    expect(health.headers.get('X-Content-Type-Options')).toBe('nosniff');
     expect((await health.json()) as { status: string; service: string }).toEqual({
       status: 'healthy',
       service: 'cdn-worker',

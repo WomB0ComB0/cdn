@@ -143,7 +143,9 @@ export function createRouter(
       }
 
       if (path === '/health') {
-        return Response.json(service.health());
+        return Response.json(service.health(), {
+          headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' },
+        });
       }
 
       if (path === '/health/metrics') {
@@ -159,7 +161,7 @@ export function createRouter(
       if (request.method !== 'GET' && request.method !== 'HEAD') {
         return new Response('Method Not Allowed', {
           status: 405,
-          headers: { Allow: 'GET, HEAD, OPTIONS' },
+          headers: { Allow: 'GET, HEAD, OPTIONS', 'X-Content-Type-Options': 'nosniff' },
         });
       }
 
@@ -342,7 +344,10 @@ export function createRouter(
       } else if (path.startsWith('/assets/')) {
         response = await service.servePublicAsset(request, method, asset);
       } else {
-        response = new Response('Not Found', { status: 404 });
+        response = new Response('Not Found', {
+          status: 404,
+          headers: { 'X-Content-Type-Options': 'nosniff' },
+        });
       }
 
       return rateDecision ? withRateLimitHeaders(response, rateDecision) : response;
