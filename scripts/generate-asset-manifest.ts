@@ -22,7 +22,10 @@ function walkDirectory(dir: string, baseDir: string, manifest: AssetManifest): v
   const entries = fs.readdirSync(dir);
   for (const file of entries) {
     const filePath = path.join(dir, file);
-    const stat = fs.statSync(filePath);
+    const stat = fs.lstatSync(filePath);
+    if (stat.isSymbolicLink()) {
+      continue;
+    }
 
     if (stat.isDirectory()) {
       walkDirectory(filePath, baseDir, manifest);

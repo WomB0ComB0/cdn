@@ -55,10 +55,15 @@ async function uploadFile(localPath: string, remotePath: string, contentType: st
 async function main(): Promise<void> {
   const manifest = JSON.parse(fs.readFileSync(MANIFEST_FILE, 'utf-8')) as AssetManifest;
 
+  const realStaticDir = fs.realpathSync(STATIC_DIR);
   for (const [original, info] of Object.entries(manifest)) {
     const localPath = resolveContainedPath(STATIC_DIR, original, { allowBaseItself: false });
     if (!localPath) {
       throw new Error(`Refusing manifest entry outside static directory: ${original}`);
+    }
+    const realLocalPath = fs.realpathSync(localPath);
+    if (!resolveContainedPath(realStaticDir, realLocalPath, { allowBaseItself: false })) {
+      throw new Error(`Refusing symlink escaping static directory: ${original}`);
     }
     if (!info.hashed || info.hashed.includes('..') || info.hashed.includes('\\') || info.hashed.startsWith('/')) {
       throw new Error(`Refusing unsafe remote manifest key: ${info.hashed}`);
@@ -67,7 +72,7 @@ async function main(): Promise<void> {
     const detected = mime.lookup(original);
     const contentType = typeof detected === 'string' ? detected : 'application/octet-stream';
 
-    await uploadFile(localPath, remotePath, contentType);
+    await uploadFile(realLocalPath, remotePath, contentType);
   }
 
   console.log('\nAll assets uploaded successfully.');
