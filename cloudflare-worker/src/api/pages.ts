@@ -339,7 +339,7 @@ export function renderCdnHomePage(): string {
             name: 'How are public and private assets served on cdn.mikeodnis.dev?',
             acceptedAnswer: {
               '@type': 'Answer',
-              text: 'Public objects under /assets/{key} are served from Cloudflare R2 with 1-year immutable edge caching, ETag validation, and HTTP byte-range support. Private objects under /private/{key} require a constant-time verified HMAC-SHA256 signature (exp and sig query parameters).',
+              text: 'Public objects under /assets/{key} are served from Cloudflare R2 with 1-year immutable canonical edge caching, ETag validation, and HTTP byte-range support. Private objects under /private/{key} require a constant-time verified HMAC-SHA256 signature (exp and sig) and emit CDN-Cache-Control: no-store, Referrer-Policy: no-referrer, and X-Robots-Tag: noindex, nofollow. Unconfirmed staging/* objects are quarantined (404).',
             },
           },
           {
@@ -347,7 +347,7 @@ export function renderCdnHomePage(): string {
             name: 'How do on-the-fly image transforms work?',
             acceptedAnswer: {
               '@type': 'Answer',
-              text: 'Prefix any public asset path with /img and pass w, h, q, and f query parameters (for example /img/assets/demo.png?w=800&q=85&f=webp). Private assets are blocked from /img transforms with HTTP 403.',
+              text: 'Prefix any public raster asset path with /img and pass w (0-4096), h (0-4096), q (10-100), and f (webp, avif, jpg, jpeg, png; default webp). Non-assets/* paths return 403 and non-raster files such as SVG/PDF/ZIP return 415.',
             },
           },
           {
@@ -355,7 +355,7 @@ export function renderCdnHomePage(): string {
             name: 'How do I upload files to cdn.mikeodnis.dev from mobile or desktop?',
             acceptedAnswer: {
               '@type': 'Answer',
-              text: 'Open https://cdn.mikeodnis.dev/upload (installable as a PWA with Android Web Share Target support) or POST multipart/form-data with a Bearer JWT to https://api.mikeodnis.dev/v1/media/upload.',
+              text: 'Open https://cdn.mikeodnis.dev/upload (installable PWA with client-side magic-byte and SVG XSS pre-flight validation plus Android Web Share Target support) or POST multipart/form-data with a Bearer JWT to https://api.mikeodnis.dev/v1/media/upload.',
             },
           },
         ],
@@ -442,17 +442,17 @@ export function renderCdnHomePage(): string {
         <div class="tile">
           <div class="label-mono">Public Assets</div>
           <div class="stat-val">300 req / 60s</div>
-          <div class="stat-sub"><code>/assets/*</code> · 1yr immutable cache · ETag + Range</div>
+          <div class="stat-sub"><code>/assets/*</code> · 1yr canonical immutable cache · ETag + Range</div>
         </div>
         <div class="tile">
           <div class="label-mono">Private Signed</div>
           <div class="stat-val">120 req / 60s</div>
-          <div class="stat-sub"><code>/private/*</code> · HMAC-SHA256 · 1h private cache</div>
+          <div class="stat-sub"><code>/private/*</code> · HMAC-SHA256 · <code>no-store</code> CDN · <code>no-referrer</code></div>
         </div>
         <div class="tile">
           <div class="label-mono">Image Transforms</div>
           <div class="stat-val">60 req / 60s</div>
-          <div class="stat-sub"><code>/img/assets/*</code> · AVIF/WebP · SVG XSS sandbox</div>
+          <div class="stat-sub"><code>/img/assets/*</code> · Raster-only (<code>415</code> SVG) · AVIF/WebP</div>
         </div>
       </section>
 
@@ -473,31 +473,31 @@ export function renderCdnHomePage(): string {
                 <td><span class="method">GET</span></td>
                 <td><code>/assets/{key}</code></td>
                 <td>Public</td>
-                <td>Serves R2 object with <code>max-age=31536000, immutable</code>, <code>ETag</code>, <code>304</code>, and <code>206 Range</code>.</td>
+                <td>Serves R2 object with query-stripped canonical Edge Cache, <code>max-age=31536000, immutable</code>, <code>ETag</code>/<code>304</code>, <code>206 Range</code>, SVG CSP sandbox, and <code>attachment</code> on active/opaque types.</td>
               </tr>
               <tr>
                 <td><span class="method">GET</span></td>
                 <td><code>/private/{key}?exp=&amp;sig=</code></td>
                 <td>HMAC-SHA256</td>
-                <td>Constant-time signature validation against <code>/private/{key}:{exp}</code>. Returns <code>403</code> if expired/invalid.</td>
+                <td>Constant-time signature validation against <code>/private/{key}:{exp}</code> with <code>CDN-Cache-Control: no-store</code>, <code>Referrer-Policy: no-referrer</code>, and <code>noindex</code>. Returns <code>403</code> if expired/invalid.</td>
               </tr>
               <tr>
                 <td><span class="method">GET</span></td>
                 <td><code>/img/assets/{key}?w=&amp;h=&amp;q=&amp;f=</code></td>
                 <td>Public</td>
-                <td>On-the-fly resize &amp; AVIF/WebP conversion via imgproxy. Blocks <code>/img/private/*</code> with <code>403</code>.</td>
+                <td>On-the-fly raster resize &amp; WebP/AVIF conversion via imgproxy (default <code>webp</code>). Blocks non-<code>assets/*</code> (<code>403</code>) and non-raster types like SVG/PDF (<code>415</code>).</td>
               </tr>
               <tr>
                 <td><span class="method">GET</span></td>
                 <td><code>/upload</code></td>
                 <td>JWT in UI</td>
-                <td>Installable PWA Upload Studio (drag/drop, paste, camera, Android Share Target) wired to <code>api.mikeodnis.dev/v1/media</code>.</td>
+                <td>Installable PWA Upload Studio (pre-flight magic-byte/SVG checks, drag/drop, paste, camera, Android Share Target) wired to <code>api.mikeodnis.dev/v1/media</code>.</td>
               </tr>
               <tr>
                 <td><span class="method">GET</span></td>
                 <td><code>/health</code> &amp; <code>/health/metrics</code></td>
                 <td>Public</td>
-                <td>Liveness check and native Cloudflare edge rate-limiter counters.</td>
+                <td>Liveness check and native Cloudflare edge rate-limiter counters (<code>Cache-Control: no-store</code>, <code>nosniff</code>).</td>
               </tr>
             </tbody>
           </table>
@@ -537,8 +537,8 @@ curl -I "${CDN_ORIGIN}/img/assets/demo/avatar.png?w=640&amp;q=85&amp;f=webp"</co
       <section class="tile faq">
         <h2>Frequently Asked Questions</h2>
         <details open>
-          <summary>How are SVG and HTML uploads protected against XSS?</summary>
-          <p>Any R2 object with an SVG, HTML, or XML content type is served with <code>Content-Security-Policy: default-src 'none'; sandbox</code> and <code>X-Content-Type-Options: nosniff</code>.</p>
+          <summary>How are uploads, SVGs, and active files protected against XSS?</summary>
+          <p>Uploads are verified with 3-way magic-byte + extension + MIME checks and full-document SVG XSS/XXE scanning (presigned PUTs stay quarantined under non-servable <code>staging/*</code> until confirmed). At the edge, SVG/HTML/XML objects emit <code>Content-Security-Policy: default-src 'none'; sandbox</code>, active/zip/opaque payloads force <code>Content-Disposition: attachment</code>, and every response sets <code>X-Content-Type-Options: nosniff</code>.</p>
         </details>
         <details>
           <summary>How do I install Upload Studio on Android or Desktop?</summary>
@@ -546,7 +546,7 @@ curl -I "${CDN_ORIGIN}/img/assets/demo/avatar.png?w=640&amp;q=85&amp;f=webp"</co
         </details>
         <details>
           <summary>What rate-limit headers does the CDN return?</summary>
-          <p>Every asset and transform request returns standard IETF <code>RateLimit-Limit</code>, <code>RateLimit-Remaining</code>, <code>RateLimit-Reset</code>, <code>RateLimit-Policy</code>, and <code>Retry-After</code> on HTTP 429.</p>
+          <p>Every asset, private, and transform request enforces per-visitor isolated edge quotas and returns standard IETF <code>RateLimit-Limit</code>, <code>RateLimit-Remaining</code>, <code>RateLimit-Reset</code>, <code>RateLimit-Policy</code>, and <code>Retry-After</code> on HTTP 429.</p>
         </details>
       </section>
     </main>

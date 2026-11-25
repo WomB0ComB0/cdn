@@ -18,11 +18,11 @@ flowchart LR
     DNS["Vercel DNS\ncdn.mikeodnis.dev"]
 
     subgraph GatewayLayer["Railway Edge Gateway"]
-        GW["Caddy 2.9\nTLS · HSTS · Keepalive · 3s Retry"]
+        GW["Caddy 2.11\nTLS · HSTS · trusted_proxies_strict\nAuthenticated X-Gateway-Client-IP Handoff"]
     end
 
     subgraph Edge["Cloudflare Edge (WomB0ComB0/cdn)"]
-        Worker["cdn-worker\nHexagonal TS Worker (10.6 KiB gzip)\nNative Edge RateLimit Bindings"]
+        Worker["cdn-worker\nHexagonal TS Worker (~186 KiB gzip w/ brand assets)\nNative Edge RateLimit Bindings (Per-Visitor IP)"]
         Cache["Cloudflare Edge Cache\n(caches.default)"]
         R2[("Cloudflare R2\nBucket: cdn")]
         ImgProxy["imgproxy (optional)\n/img/* · 10s AbortSignal timeout"]
@@ -114,7 +114,7 @@ sequenceDiagram
 
     rect rgba(56, 142, 235, 0.08)
         Note over Client,R2: Private Asset Flow (/private/*)
-        Client->>MediaAPI: POST /v1/media/sign { key: "private/<uid>/<file>", ttl_seconds: 120 }
+        Client->>MediaAPI: POST /v1/media/sign { key: "private/<uid>/<file>", expires_in: 120 }
         Note over MediaAPI: HMAC-SHA256(SIGNING_SECRET, "/private/<uid>/<file>:<exp>")<br/>unpadded Base64URL
         MediaAPI-->>Client: { url: "https://cdn.mikeodnis.dev/private/...?exp=...&sig=..." }
 
@@ -125,7 +125,7 @@ sequenceDiagram
         else Valid signature
             Worker->>R2: R2_BUCKET.get("private/<uid>/<file>", { range })
             R2-->>Worker: Object stream + ETag
-            Worker-->>Client: 200 / 206 (Cache-Control: private, max-age=3600)
+            Worker-->>Client: 200 / 206 (private, CDN-Cache-Control: no-store, no-referrer, noindex)
         end
     end
 ```
@@ -165,14 +165,15 @@ Pushing an annotated SemVer tag (`vX.Y.Z`) or triggering `workflow_dispatch` run
 
 | Control | Implementation | Protection / Benefit |
 | :--- | :--- | :--- |
-| **Tiered Edge Rate Limiting** | [`rateLimit.ts`](./cloudflare-worker/src/domain/rateLimit.ts) + [`cfRateLimiter.ts`](./cloudflare-worker/src/adapters/cfRateLimiter.ts) | Native Cloudflare `ratelimits` bindings (`/img/*` 60/60s, `/private/*` 120/60s, `/assets/*` 300/60s) keyed by non-spoofable `CF-Connecting-IP`, bounded weighted sliding-window isolate fallback, and IETF `RateLimit-*` + `Retry-After` headers |
-| **SVG / XML Stored XSS Sandboxing** | [`cdnService.ts`](./cloudflare-worker/src/application/cdnService.ts) | Emits `Content-Security-Policy: default-src 'none'; sandbox` on SVG/XML/HTML objects + `X-Content-Type-Options: nosniff` on every response |
-| **Isolate-Cached HMAC Verification** | [`hmacSignatureVerifier.ts`](./cloudflare-worker/src/adapters/hmacSignatureVerifier.ts) | Caches WebCrypto `CryptoKey` per Worker isolate + verifies signatures with `crypto.subtle.timingSafeEqual` (zero timing leak, low CPU) |
-| **Path Traversal & Prefix Isolation** | [`asset.ts`](./cloudflare-worker/src/domain/asset.ts) | Rejects malformed percent-encoding, `..`, and `\` (`400`); blocks `/img/private/*` (`403`); clamps dimensions (`0–4096`) and quality (`10–100`) |
+| **Tiered Per-Visitor Edge Rate Limiting** | [`rateLimit.ts`](./cloudflare-worker/src/domain/rateLimit.ts) + [`cfRateLimiter.ts`](./cloudflare-worker/src/adapters/cfRateLimiter.ts) | Native Cloudflare `ratelimits` bindings (`/img/*` 60/60s, `/private/*` 120/60s, `/assets/*` 300/60s) keyed by constant-time verified `X-Gateway-Proxy-Secret` + `X-Gateway-Client-IP` behind Railway Caddy (falling back to edge `CF-Connecting-IP`), bounded weighted sliding-window isolate fallback, and IETF `RateLimit-*` + `Retry-After` headers |
+| **SVG / XML Sandboxing & Attachment Guard** | [`cdnService.ts`](./cloudflare-worker/src/application/cdnService.ts) | Emits `Content-Security-Policy: default-src 'none'; sandbox` on SVG/XML/HTML, `Content-Disposition: attachment` on active/zip/opaque types, and `X-Content-Type-Options: nosniff` on every response (incl. `404`/`405`/errors) |
+| **Isolate-Cached HMAC Verification & Private Hygiene** | [`hmacSignatureVerifier.ts`](./cloudflare-worker/src/adapters/hmacSignatureVerifier.ts) + [`cdnService.ts`](./cloudflare-worker/src/application/cdnService.ts) | Pre-crypto regex bounds on `exp`/`sig`, isolate-cached WebCrypto `CryptoKey` + `timingSafeEqual`, plus `CDN-Cache-Control: no-store`, `Referrer-Policy: no-referrer`, and `X-Robots-Tag: noindex, nofollow` on `/private/*` |
+| **Path Traversal, Quarantine & Transform Allowlist** | [`asset.ts`](./cloudflare-worker/src/domain/asset.ts) + [`cdnService.ts`](./cloudflare-worker/src/application/cdnService.ts) | Rejects malformed percent-encoding, `..`, `//`, `\`, NUL & bidi runes (`400`); unconfirmed `staging/*` objects are never servable (`404`); `/img/*` fail-closes to raster `assets/*` only (`403` on non-`assets/*`, `415` on SVG/PDF/ZIP), derives canonical `Accept` from explicit `f`, strips query-busters from edge cache keys, and rejects upstream SVG (`502`) |
+| **Client Pre-Flight Upload Safety & Session Hygiene** | [`pages.ts`](./cloudflare-worker/src/api/pages.ts) + [`cdn-upload.ts`](./scripts/cdn-upload.ts) | Local WSTG-BUSL-08/09 magic-byte + entity-decoded SVG scanning before bytes leave the device (`@resq-systems/security` in CLI), single-flight refresh with `sessionEpoch` logout-race protection, server-side logout revocation, same-origin `sw.js` with `100 MiB` share cap |
 | **Branded Domain Types** | [`@resq-systems/types`](https://github.com/resq-software/npm) | Nominal `ObjectKey`, `Pathname`, `UnixSeconds` brands + curried range guards (`isInRange`, `isNonEmptyString`) |
-| **Bounded Upstream Timeout** | [`imgproxyClient.ts`](./cloudflare-worker/src/adapters/imgproxyClient.ts) | `AbortSignal.timeout(10_000)` prevents hung Worker isolates, mapping cleanly to `504 Gateway Timeout` / `502 Bad Gateway` |
-| **O(1) Edge Delivery** | [`cfEdgeCache.ts`](./cloudflare-worker/src/adapters/cfEdgeCache.ts) + [`r2ObjectStore.ts`](./cloudflare-worker/src/adapters/r2ObjectStore.ts) | Non-blocking `ctx.waitUntil(cache.put(...))`, full `Range`/`206` streaming, `HEAD` without body reads, `ETag`/`304` conditional caching |
-| **Zero-Vulnerability Bundle** | [`test.yml`](./.github/workflows/test.yml) | Verified by `bun audit --audit-level=high` (`0` vulnerabilities), `zizmor` (`0` findings), and strict TypeScript + Hexagonal architecture boundary tests |
+| **Bounded Upstream Timeout & Loopback `imgproxy`** | [`imgproxyClient.ts`](./cloudflare-worker/src/adapters/imgproxyClient.ts) + [`docker-compose.yml`](./docker-compose.yml) | `AbortSignal.timeout(10_000)` (`504`/`502`), allowlisted upstream headers, optional `imgproxy` bound to `127.0.0.1:8080` with `IMGPROXY_ALLOWED_SOURCES: s3://cdn/assets/` |
+| **O(1) Edge Delivery** | [`cfEdgeCache.ts`](./cloudflare-worker/src/adapters/cfEdgeCache.ts) + [`r2ObjectStore.ts`](./cloudflare-worker/src/adapters/r2ObjectStore.ts) | Non-blocking `ctx.waitUntil(cache.put(...))` with query-stripped canonical keys, bounded `Range`/`206` streaming, `HEAD` without body reads, `ETag`/`304` conditional caching |
+| **Zero-Vulnerability Bundle** | [`test.yml`](./.github/workflows/test.yml) | Verified by `bun audit --audit-level=high` (`0` vulnerabilities), `zizmor` (`0` findings), symlink-contained bulk R2 scripts, and strict TypeScript + Hexagonal architecture boundary tests |
 | **LLM / AEO & Standards Discovery** | [`discovery.ts`](./cloudflare-worker/src/api/discovery.ts) + [`brandAssets.ts`](./cloudflare-worker/src/api/brandAssets.ts) | Serves `/llms.txt`, `/llms-full.txt`, `/openapi.yaml`, `/.well-known/security.txt`, `/.well-known/assetlinks.json`, `/robots.txt`, `/sitemap.xml`, `Link` headers, Wolf-Mark icons, and 1200×630 OpenGraph cards (`CORP: cross-origin`) |
 
 ---
@@ -183,11 +184,11 @@ Pushing an annotated SemVer tag (`vX.Y.Z`) or triggering `workflow_dispatch` run
 
 | Route | Methods | Rate Limit | Behavior |
 | :--- | :--- | :--- | :--- |
-| `/health` | `GET` | Exempt | Worker liveness check (`{"status":"healthy","service":"cdn-worker"}`) |
-| `/health/metrics` | `GET` | Exempt | Worker liveness + rate-limiter observability metrics (`evaluated`, `limited429`, `limitedByTier`, `bindingErrors`, `isolateFallbackHits`) |
-| `/assets/<key>` | `GET`, `HEAD`, `OPTIONS` | `300 / 60s` | Public immutable R2 delivery (`public, max-age=31536000, immutable`), Edge Cache, `ETag`/`304`, `Range`/`206`, SVG CSP sandbox |
-| `/private/<key>?exp=&sig=` | `GET`, `HEAD`, `OPTIONS` | `120 / 60s` | Timing-safe HMAC-SHA256 signed private R2 delivery (compatible with `api.mikeodnis.dev` `POST /v1/media/sign`), bypasses shared edge cache |
-| `/img/<key>?w=&h=&q=&f=` | `GET`, `HEAD`, `OPTIONS` | `60 / 60s` | On-the-fly image transforms via `imgproxy` (blocks `private/*`, clamps `w`/`h`/`q`, allow-lists `webp`/`avif`/`jpg`/`jpeg`/`png`) |
+| `/health` | `GET` | Exempt | Worker liveness check (`{"status":"healthy","service":"cdn-worker"}`, `no-store`, `nosniff`) |
+| `/health/metrics` | `GET` | Exempt | Worker liveness + rate-limiter observability metrics (`no-store`, `nosniff`) |
+| `/assets/<key>` | `GET`, `HEAD`, `OPTIONS` | `300 / 60s` | Public immutable R2 delivery (`public, max-age=31536000, immutable`), canonical query-stripped Edge Cache, `ETag`/`304`, `Range`/`206`, SVG CSP sandbox, `attachment` on active/zip/opaque types |
+| `/private/<key>?exp=&sig=` | `GET`, `HEAD`, `OPTIONS` | `120 / 60s` | Timing-safe HMAC-SHA256 signed private R2 delivery (`CDN-Cache-Control: no-store`, `Referrer-Policy: no-referrer`, `X-Robots-Tag: noindex, nofollow`) |
+| `/img/assets/<key>?w=&h=&q=&f=` | `GET`, `HEAD`, `OPTIONS` | `60 / 60s` | On-the-fly raster image transforms via `imgproxy` (`403` on non-`assets/*`, `415` on SVG/PDF/ZIP, `w`/`h` `0–4096`, `q` `10–100`, `f` `webp\|avif\|jpg\|jpeg\|png`, canonical cache key & `Accept`) |
 
 ### Portal, Upload Studio PWA, Discovery & Brand Assets
 
@@ -221,12 +222,13 @@ adb install -r ./android-twa/mike-cdn-upload.apk
 ```
 
 ### 3. Desktop / Terminal CLI (Bun)
-Upload files from any terminal with persistent JWT refresh (`~/.config/mike-cdn/session.json`, `chmod 600`) and automatic clipboard copy (`wl-copy` / `xclip` / `pbcopy`):
+Upload files from any terminal with `@resq-systems/security` local WSTG-BUSL-08/09 pre-flight validation, persistent JWT refresh (`~/.config/mike-cdn/session.json`, `chmod 600`), and automatic clipboard copy (`wl-copy` / `xclip` / `pbcopy`):
 
 ```bash
 bun run scripts/cdn-upload.ts login <your-email>
 bun run scripts/cdn-upload.ts ./screenshot.png --copy
-bun run scripts/cdn-upload.ts ./invoice.pdf --private --sign 3600 --copy
+bun run scripts/cdn-upload.ts ./invoice.pdf --private --copy
+bun run scripts/cdn-upload.ts list
 ```
 
 ---
@@ -250,7 +252,8 @@ bun run dev                        # Local Wrangler dev server
 
 ```bash
 cd cloudflare-worker
-bunx wrangler secret put SIGNING_SECRET   # Must match api.mikeodnis.dev SIGNING_SECRET
+bunx wrangler secret put SIGNING_SECRET        # Must match api.mikeodnis.dev SIGNING_SECRET
+bunx wrangler secret put GATEWAY_PROXY_SECRET  # Shared with Railway Caddy gateway for per-visitor IP rate limits
 bunx wrangler deploy
 ```
 

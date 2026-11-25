@@ -116,15 +116,16 @@ export const CDN_LLMS_TXT = `# cdn.mikeodnis.dev
 
 ## Delivery Routes
 
-- \`GET /assets/{key}\`: Immutable public R2 assets (\`Cache-Control: public, max-age=31536000, immutable\`, ETag, Range).
-- \`GET /private/{key}?exp={unix}&sig={hmac}\`: Time-limited HMAC-SHA256 signed private assets (\`Cache-Control: private, max-age=3600\`).
-- \`GET /img/assets/{key}?w={px}&h={px}&q={1-100}&f={avif|webp|jpeg|png}\`: On-the-fly imgproxy image transformation with automatic AVIF/WebP negotiation.
+- \`GET /assets/{key}\`: Immutable public R2 assets (query-stripped canonical cache key, \`Cache-Control: public, max-age=31536000, immutable\`, ETag, Range).
+- \`GET /private/{key}?exp={unix}&sig={hmac}\`: Time-limited HMAC-SHA256 signed private assets (\`CDN-Cache-Control: no-store\`, \`Referrer-Policy: no-referrer\`, \`X-Robots-Tag: noindex, nofollow\`).
+- \`GET /img/assets/{key}?w={0-4096}&h={0-4096}&q={10-100}&f={webp|avif|jpg|jpeg|png}\`: On-the-fly raster-only imgproxy image transformation (default \`webp\`, \`415\` on non-raster, \`403\` on non-\`assets/*\`).
+- \`staging/*\` presigned upload keys are quarantined and never servable (\`404\`).
 
 ## Uploads & Management
 
 Uploads and asset management are authenticated via JWT on the companion platform gateway:
-- \`POST ${API_ORIGIN}/v1/media/upload\`: Multipart file upload (up to 100 MiB) to public or private R2 namespaces.
-- \`POST ${API_ORIGIN}/v1/media/presign\` + \`POST ${API_ORIGIN}/v1/media/assets/confirm\`: Direct-to-R2 presigned PUT upload flow.
+- \`POST ${API_ORIGIN}/v1/media/upload\`: Magic-byte & SVG verified multipart upload (up to 100 MiB; SVG 2 MiB) to public or private R2 namespaces.
+- \`POST ${API_ORIGIN}/v1/media/presign\` + \`POST ${API_ORIGIN}/v1/media/assets/confirm\`: Quarantined \`staging/*\` presigned PUT + ETag-pinned atomic promotion flow.
 - \`GET ${API_ORIGIN}/v1/media/assets\`, \`POST ${API_ORIGIN}/v1/media/sign\`, \`POST ${API_ORIGIN}/v1/media/purge\`, \`DELETE ${API_ORIGIN}/v1/media/assets/{id}\`.
 
 ## Rate Limits (Per-IP, 60s Window)
@@ -168,11 +169,11 @@ It runs on Cloudflare Workers backed by Cloudflare R2 (\`cdn\` bucket) with tier
 
 ## Image Transformation Parameters (\`/img/assets/{key}\`)
 
-- \`w\`: Target width in pixels (integer, bounded by imgproxy)
-- \`h\`: Target height in pixels (integer)
-- \`q\`: Output quality \`1\`–\`100\`
-- \`f\`: Output format (\`avif\`, \`webp\`, \`jpeg\`, \`png\`). When omitted, content-negotiated from \`Accept\` header (\`image/avif,image/webp,*/*\`).
-- Security: \`/img/private/*\` is strictly forbidden (\`403 Forbidden\`) to prevent unauthenticated private asset leakage through the image proxy.
+- \`w\`: Target width in pixels (\`0\`–\`4096\`, strict 1–4 digit integer)
+- \`h\`: Target height in pixels (\`0\`–\`4096\`, strict 1–4 digit integer)
+- \`q\`: Output quality \`10\`–\`100\` (default \`85\`)
+- \`f\`: Output format (\`webp\`, \`avif\`, \`jpg\`, \`jpeg\`, \`png\`; default \`webp\`). Canonical \`Accept\` header is derived from \`f\` to prevent cache poisoning.
+- Security: Only public raster \`assets/*\` (\`.jpg\`, \`.jpeg\`, \`.png\`, \`.gif\`, \`.webp\`, \`.avif\`) are permitted; non-\`assets/*\` paths return \`403 Forbidden\`, non-raster extensions (e.g. SVG/PDF/ZIP) return \`415 Unsupported Media Type\`, and upstream SVG responses return \`502 Bad Gateway\`.
 
 ## Private URL HMAC Signing Specification
 
@@ -183,7 +184,7 @@ payload = "/private/{key}:{exp}"
 sig     = base64url_nopad(HMAC_SHA256(SIGNING_SECRET, payload))
 \`\`\`
 
-Signatures are verified in constant time using Web Crypto \`crypto.subtle.verify\`. Expired or mismatched signatures return \`403 Forbidden\`.
+Signatures are verified in constant time using an isolate-cached Web Crypto \`CryptoKey\` and \`timingSafeEqual\`. Expired or mismatched signatures return \`403 Forbidden\`. Valid private responses always emit \`CDN-Cache-Control: no-store\`, \`Referrer-Policy: no-referrer\`, and \`X-Robots-Tag: noindex, nofollow\`.
 To mint a signed URL programmatically, call \`POST ${API_ORIGIN}/v1/media/sign\` with a valid Bearer JWT.
 
 ## Uploading Assets (via api.mikeodnis.dev/v1/media)
@@ -203,21 +204,23 @@ curl -sS -X POST ${API_ORIGIN}/v1/media/upload \\
   -F "visibility=public"
 \`\`\`
 
-3. Or use the installable Upload Studio PWA at \`${CDN_ORIGIN}/upload\` (supports drag-and-drop, clipboard paste, mobile camera, and Android Share Sheet).
+3. Or use the installable Upload Studio PWA at \`${CDN_ORIGIN}/upload\` (supports client-side magic-byte & SVG pre-flight validation, drag-and-drop, clipboard paste, mobile camera, and Android Share Sheet).
 
 ## Security Controls
 
-- **SVG / HTML / XML Sandboxing**: Any R2 object with \`svg\`, \`html\`, or \`xml\` MIME type is served with \`Content-Security-Policy: default-src 'none'; sandbox\` and \`X-Content-Type-Options: nosniff\` to prevent Stored XSS.
-- **Path Traversal Guard**: \`AssetPath.parse\` rejects \`..\`, null bytes, backslashes, and malformed segments (\`400\` / \`403\`).
-- **Rate Limiting**: Tiered Cloudflare native \`ratelimits\` bindings with bounded per-isolate sliding-window fallback and IETF \`RateLimit-*\` response headers.
+- **SVG / HTML / XML Sandboxing & Attachment Guard**: Any R2 object with \`svg\`, \`html\`, or \`xml\` MIME type is served with \`Content-Security-Policy: default-src 'none'; sandbox\`, active/zip/opaque types force \`Content-Disposition: attachment\`, and every response emits \`X-Content-Type-Options: nosniff\`.
+- **Quarantine & Path Traversal Guard**: \`AssetPath.parse\` rejects \`..\`, \`//\`, null bytes, bidi controls, and backslashes (\`400\`); unconfirmed \`staging/*\` presigned uploads are never servable (\`404\`).
+- **Per-Visitor Rate Limiting**: Tiered Cloudflare native \`ratelimits\` bindings keyed by constant-time verified \`X-Gateway-Proxy-Secret\` + \`X-Gateway-Client-IP\` (or edge \`CF-Connecting-IP\`), with bounded per-isolate sliding-window fallback and IETF \`RateLimit-*\` headers.
 
 ## Error Codes
 
-- \`400 Bad Request\`: Malformed object path or invalid image transform parameters.
-- \`403 Forbidden\`: Missing, expired, or invalid HMAC signature; or attempt to transform a \`/private/\` object.
-- \`404 Not Found\`: Object does not exist in R2.
+- \`400 Bad Request\`: Malformed object path (traversal, NUL, bidi, \`//\`) or invalid image transform parameters.
+- \`403 Forbidden\`: Missing, expired, or invalid HMAC signature; or attempt to transform a non-\`assets/*\` object.
+- \`404 Not Found\`: Object does not exist in R2 or resides under non-servable \`staging/*\`.
 - \`405 Method Not Allowed\`: Only \`GET\`, \`HEAD\`, and \`OPTIONS\` are permitted on the delivery edge.
+- \`415 Unsupported Media Type\`: Non-raster file requested under \`/img/assets/*\`.
 - \`429 Too Many Requests\`: Tier rate limit exceeded (check \`Retry-After\` and \`RateLimit-Reset\`).
+- \`502 Bad Gateway\` / \`504 Gateway Timeout\`: Upstream \`imgproxy\` error, non-raster content type, or 10s timeout.
 - \`503 Service Unavailable\`: \`IMGPROXY_URL\` not configured for \`/img/\` requests.
 `;
 
@@ -317,21 +320,24 @@ paths:
           schema: { type: string }
         - name: w
           in: query
-          schema: { type: integer }
+          schema: { type: integer, minimum: 0, maximum: 4096 }
         - name: h
           in: query
-          schema: { type: integer }
+          schema: { type: integer, minimum: 0, maximum: 4096 }
         - name: q
           in: query
-          schema: { type: integer, minimum: 1, maximum: 100 }
+          schema: { type: integer, minimum: 10, maximum: 100, default: 85 }
         - name: f
           in: query
-          schema: { type: string, enum: [avif, webp, jpeg, png] }
+          schema: { type: string, enum: [webp, avif, jpg, jpeg, png], default: webp }
       responses:
         '200': { description: Transformed image }
-        '403': { description: Private transforms forbidden }
+        '403': { description: Non-assets/* transforms forbidden }
+        '415': { description: Unsupported non-raster source format }
         '429': { description: Rate limit exceeded (60/60s) }
-        '503': { description: Image proxy unavailable }
+        '502': { description: Upstream image proxy error or invalid content type }
+        '503': { description: Image proxy not configured }
+        '504': { description: Image proxy timed out }
   /llms.txt:
     get:
       summary: Concise LLM documentation index
