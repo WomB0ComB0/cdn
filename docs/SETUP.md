@@ -37,10 +37,10 @@ cd cloudflare-worker
 bunx wrangler login
 
 # 2. Create the R2 bucket matching wrangler.jsonc
-bunx wrangler r2 bucket create mikeodnis-cdn
+bunx wrangler r2 bucket create cdn
 ```
 
-In the Cloudflare Dashboard → **R2 → Manage R2 API Tokens**, create a Read & Write token scoped to `mikeodnis-cdn` and supply its credentials (`CLOUDFLARE_R2_ACCOUNT_ID`, `CLOUDFLARE_R2_ACCESS_KEY_ID`, `CLOUDFLARE_R2_SECRET_ACCESS_KEY`) to `media-service` in `WomB0ComB0/api`.
+In the Cloudflare Dashboard → **R2 → Manage R2 API Tokens**, create a Read & Write token scoped to `cdn` and supply its credentials (`CLOUDFLARE_R2_ACCOUNT_ID`, `CLOUDFLARE_R2_ACCESS_KEY_ID`, `CLOUDFLARE_R2_SECRET_ACCESS_KEY`) to `media-service` in `WomB0ComB0/api`.
 
 For edge cache invalidation (`POST /v1/media/purge`), create a Cloudflare API Token with **Zone → Cache Purge → Purge** on `mikeodnis.dev` and configure `CLOUDFLARE_ZONE_ID` and `CLOUDFLARE_API_TOKEN` in `media-service`.
 
@@ -49,8 +49,8 @@ For edge cache invalidation (`POST /v1/media/purge`), create a Cloudflare API To
 ## Step 3: Configure & Deploy the Edge Worker
 
 Inspect [`cloudflare-worker/wrangler.jsonc`](../cloudflare-worker/wrangler.jsonc) to verify:
-- R2 binding (`R2_BUCKET` → `mikeodnis-cdn`)
-- Native Cloudflare `ratelimit` bindings (`RL_PUBLIC` 300/min, `RL_PRIVATE` 60/min, `RL_TRANSFORM` 30/min)
+- R2 binding (`R2_BUCKET` → `cdn`)
+- Native Cloudflare `ratelimit` bindings (`RATE_LIMIT_ASSETS` 300/60s, `RATE_LIMIT_PRIVATE` 120/60s, `RATE_LIMIT_IMG` 60/60s)
 - Optional `IMGPROXY_URL` var if running an imgproxy instance
 
 Upload secrets via stdin (never pass secrets as command-line arguments):
