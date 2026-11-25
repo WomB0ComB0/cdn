@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quarantined Presigned Upload · Sequence</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:   #0c0c14;
+      --color-paper-2: #15151f;
+      --color-ink:     #e8e9ff;
+      --color-muted:   #a8a8c3;
+      --color-soft:    #8d8da1;
+      --color-accent:  #aaa8ee;
+      --color-link:    #6dbbe8;
+      --font-sans:     'Geist', system-ui, sans-serif;
+      --font-serif:    'Instrument Serif', serif;
+      --font-mono:     'Geist Mono', ui-monospace, monospace;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--color-paper);
+      color: var(--color-ink);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 3rem 2rem;
+    }
+
+    .frame { max-width: 1080px; width: 100%; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.66rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--color-muted);
+      margin-bottom: 0.5rem;
+    }
+
+    h1 {
+      font-family: var(--font-serif);
+      font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem);
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      color: var(--color-ink);
+      margin-bottom: 1.5rem;
+    }
+
+    svg { width: 100%; min-width: 960px; display: block; }
+    @media print {
+      .diagram-container { overflow-x: visible; }
+      svg { min-width: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Sequence · Media Upload Quarantine</p>
+    <h1>Path B Quarantined Presigned Upload &amp; Promotion</h1>
+
+    <div class="diagram-container">
+      <svg viewBox="0 0 960 600" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="presigned-upload-sequence-title presigned-upload-sequence-desc">
+        <title id="presigned-upload-sequence-title">Path B Quarantined Presigned Upload Sequence</title>
+        <desc id="presigned-upload-sequence-desc">Sequence showing a client requesting a staging presigned URL, uploading bytes directly to R2 staging, and Media API sniffing magic bytes before an ETag-pinned copy or rejecting invalid replays.</desc>
+        <defs>
+          <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#a8a8c3"/></marker>
+          <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#aaa8ee"/></marker>
+          <marker id="arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#6dbbe8"/></marker>
+          <marker id="arrow-open" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polyline points="0 0, 8 3, 0 6" fill="none" stroke="#a8a8c3" stroke-width="1.2"/></marker>
+        </defs>
+
+        <rect width="100%" height="100%" fill="#0c0c14"/>
+
+        <!-- Lifelines -->
+        <line x1="120" y1="96" x2="120" y2="516" stroke="#2c2c3c" stroke-width="1" stroke-dasharray="3,3"/>
+        <line x1="360" y1="96" x2="360" y2="516" stroke="#2c2c3c" stroke-width="1" stroke-dasharray="3,3"/>
+        <line x1="600" y1="96" x2="600" y2="516" stroke="#2c2c3c" stroke-width="1" stroke-dasharray="3,3"/>
+        <line x1="840" y1="96" x2="840" y2="516" stroke="#2c2c3c" stroke-width="1" stroke-dasharray="3,3"/>
+
+        <!-- Activation bars -->
+        <rect x="356" y="132" width="8" height="44" fill="rgba(232,233,255,0.06)" stroke="#a8a8c3" stroke-width="0.8"/>
+        <rect x="596" y="204" width="8" height="24" fill="rgba(232,233,255,0.06)" stroke="#a8a8c3" stroke-width="0.8"/>
+        <rect x="356" y="244" width="8" height="256" fill="rgba(232,233,255,0.06)" stroke="#a8a8c3" stroke-width="0.8"/>
+        <rect x="836" y="392" width="8" height="24" fill="rgba(232,233,255,0.06)" stroke="#a8a8c3" stroke-width="0.8"/>
+
+        <!-- Combined Fragment: ALT (promote vs reject) -->
+        <rect x="88" y="300" width="784" height="204" rx="4"
+              fill="rgba(232,233,255,0.03)" stroke="#45455d" stroke-width="1"/>
+        <rect x="88" y="300" width="40" height="16" rx="2"
+              fill="#0c0c14" stroke="#45455d" stroke-width="1"/>
+        <text x="108" y="311" fill="#a8a8c3" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">ALT</text>
+        <text x="140" y="328" fill="#a8a8c3" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.04em">[magic bytes &amp; SVG valid · first confirm]</text>
+
+        <line x1="96" y1="444" x2="864" y2="444" stroke="#45455d" stroke-width="1" stroke-dasharray="4,3"/>
+        <text x="140" y="460" fill="#a8a8c3" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.04em">[else · invalid MIME or replay]</text>
+
+        <!-- Messages -->
+        <!-- M1: Client -> Media API: POST /presign -->
+        <line x1="120" y1="136" x2="356" y2="136" stroke="#6dbbe8" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+        <rect x="192" y="116" width="96" height="12" rx="2" fill="#0c0c14"/>
+        <text x="240" y="125" fill="#6dbbe8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">POST /PRESIGN</text>
+
+        <!-- M2: Media API -> Client: 200 staging url -->
+        <line x1="356" y1="172" x2="124" y2="172" stroke="#a8a8c3" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#arrow)"/>
+        <rect x="180" y="152" width="120" height="12" rx="2" fill="#0c0c14"/>
+        <text x="240" y="161" fill="#a8a8c3" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">200 · STAGING URL</text>
+
+        <!-- M3: Client -> R2: PUT staging/* (label placed in 360..600 gap to avoid lifeline) -->
+        <line x1="120" y1="208" x2="596" y2="208" stroke="#6dbbe8" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+        <rect x="428" y="188" width="104" height="12" rx="2" fill="#0c0c14"/>
+        <text x="480" y="197" fill="#6dbbe8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">PUT STAGING/*</text>
+
+        <!-- M4: Client -> Media API: POST /confirm -->
+        <line x1="120" y1="248" x2="356" y2="248" stroke="#6dbbe8" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+        <rect x="192" y="228" width="96" height="12" rx="2" fill="#0c0c14"/>
+        <text x="240" y="237" fill="#6dbbe8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">POST /CONFIRM</text>
+
+        <!-- M5: Media API -> R2: HEAD + 513B sniff -->
+        <line x1="364" y1="284" x2="596" y2="284" stroke="#a8a8c3" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <rect x="420" y="264" width="120" height="12" rx="2" fill="#0c0c14"/>
+        <text x="480" y="273" fill="#a8a8c3" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">HEAD + SNIFF 513B</text>
+
+        <!-- M6 (ALT 1): Media API -> R2: ETag-pinned CopyObject + Delete staging -->
+        <line x1="364" y1="360" x2="596" y2="360" stroke="#a8a8c3" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <rect x="416" y="340" width="128" height="12" rx="2" fill="#0c0c14"/>
+        <text x="480" y="349" fill="#a8a8c3" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">COPY IF-MATCH + DEL</text>
+
+        <!-- M7 (ALT 1): Media API -> PG: Insert metadata (label placed in 600..840 gap) -->
+        <line x1="364" y1="396" x2="836" y2="396" stroke="#a8a8c3" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <rect x="668" y="376" width="104" height="12" rx="2" fill="#0c0c14"/>
+        <text x="720" y="385" fill="#a8a8c3" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">INSERT ASSET</text>
+
+        <!-- M8 (ALT 1): Media API -> Client: 201 Live CDN URL (FOCAL headline success) -->
+        <line x1="356" y1="432" x2="124" y2="432" stroke="#aaa8ee" stroke-width="1.4" marker-end="url(#arrow-accent)"/>
+        <rect x="180" y="412" width="120" height="12" rx="2" fill="#0c0c14"/>
+        <text x="240" y="421" fill="#aaa8ee" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">201 · LIVE CDN URL</text>
+
+        <!-- M9 (ALT 2): Media API -> Client: 409 / 415 Reject -->
+        <line x1="356" y1="496" x2="124" y2="496" stroke="#a8a8c3" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#arrow)"/>
+        <rect x="184" y="476" width="112" height="12" rx="2" fill="#0c0c14"/>
+        <text x="240" y="485" fill="#a8a8c3" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">409 / 415 REJECT</text>
+
+        <!-- Actor boxes (drawn after lifelines and arrows) -->
+        <rect x="48" y="40" width="144" height="56" rx="6" fill="#0c0c14"/>
+        <rect x="48" y="40" width="144" height="56" rx="6" fill="rgba(168,168,195,0.08)" stroke="#8d8da1" stroke-width="1"/>
+        <rect x="56" y="48" width="28" height="12" rx="2" fill="transparent" stroke="rgba(141,141,161,0.45)" stroke-width="0.8"/>
+        <text x="70" y="57" fill="#8d8da1" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">APP</text>
+        <text x="120" y="72" fill="#e8e9ff" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Client</text>
+        <text x="120" y="88" fill="#a8a8c3" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">PWA · CLI · SDK</text>
+
+        <rect x="288" y="40" width="144" height="56" rx="6" fill="#0c0c14"/>
+        <rect x="288" y="40" width="144" height="56" rx="6" fill="rgba(136,132,213,0.14)" stroke="#aaa8ee" stroke-width="1.2"/>
+        <rect x="296" y="48" width="28" height="12" rx="2" fill="transparent" stroke="rgba(170,168,238,0.55)" stroke-width="0.8"/>
+        <text x="310" y="57" fill="#aaa8ee" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">API</text>
+        <text x="360" y="72" fill="#e8e9ff" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Media Service</text>
+        <text x="360" y="88" fill="#a8a8c3" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">Go 1.26 · JWT</text>
+
+        <rect x="528" y="40" width="144" height="56" rx="6" fill="#0c0c14"/>
+        <rect x="528" y="40" width="144" height="56" rx="6" fill="rgba(232,233,255,0.05)" stroke="#a8a8c3" stroke-width="1"/>
+        <rect x="536" y="48" width="24" height="12" rx="2" fill="transparent" stroke="#45455d" stroke-width="0.8"/>
+        <text x="548" y="57" fill="#a8a8c3" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">R2</text>
+        <text x="600" y="72" fill="#e8e9ff" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Cloudflare R2</text>
+        <text x="600" y="88" fill="#a8a8c3" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">staging → live</text>
+
+        <rect x="768" y="40" width="144" height="56" rx="6" fill="#0c0c14"/>
+        <rect x="768" y="40" width="144" height="56" rx="6" fill="rgba(232,233,255,0.05)" stroke="#a8a8c3" stroke-width="1"/>
+        <rect x="776" y="48" width="24" height="12" rx="2" fill="transparent" stroke="#45455d" stroke-width="0.8"/>
+        <text x="788" y="57" fill="#a8a8c3" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">DB</text>
+        <text x="840" y="72" fill="#e8e9ff" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">PostgreSQL</text>
+        <text x="840" y="88" fill="#a8a8c3" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">media.assets</text>
+
+        <!-- Legend strip -->
+        <line x1="48" y1="536" x2="912" y2="536" stroke="#2c2c3c" stroke-width="0.8"/>
+        <text x="48" y="552" fill="#a8a8c3" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em">LEGEND</text>
+
+        <rect x="48" y="564" width="14" height="10" rx="2" fill="rgba(136,132,213,0.14)" stroke="#aaa8ee" stroke-width="1"/>
+        <text x="68" y="572" fill="#a8a8c3" font-size="8.5" font-family="'Geist', sans-serif">Focal validator</text>
+
+        <rect x="180" y="560" width="28" height="16" rx="2" fill="rgba(232,233,255,0.03)" stroke="#45455d" stroke-width="1"/>
+        <text x="194" y="571" fill="#a8a8c3" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle">ALT</text>
+        <text x="216" y="572" fill="#a8a8c3" font-size="8.5" font-family="'Geist', sans-serif">Branch fragment</text>
+
+        <line x1="336" y1="569" x2="364" y2="569" stroke="#6dbbe8" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+        <text x="372" y="572" fill="#a8a8c3" font-size="8.5" font-family="'Geist', sans-serif">Client HTTP</text>
+
+        <line x1="464" y1="569" x2="492" y2="569" stroke="#a8a8c3" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <text x="500" y="572" fill="#a8a8c3" font-size="8.5" font-family="'Geist', sans-serif">Internal call</text>
+
+        <line x1="596" y1="569" x2="624" y2="569" stroke="#a8a8c3" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#arrow)"/>
+        <text x="632" y="572" fill="#a8a8c3" font-size="8.5" font-family="'Geist', sans-serif">Return</text>
+
+        <line x1="704" y1="569" x2="732" y2="569" stroke="#aaa8ee" stroke-width="1.4" marker-end="url(#arrow-accent)"/>
+        <text x="740" y="572" fill="#a8a8c3" font-size="8.5" font-family="'Geist', sans-serif">Promoted asset</text>
+      </svg>
+    </div>
+  </div>
+</body>
+</html>

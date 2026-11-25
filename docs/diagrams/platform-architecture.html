@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Platform Architecture · api.mikeodnis.dev &amp; cdn.mikeodnis.dev</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:   #0c0c14;
+      --color-paper-2: #15151f;
+      --color-ink:     #e8e9ff;
+      --color-muted:   #a8a8c3;
+      --color-soft:    #8d8da1;
+      --color-accent:  #aaa8ee;
+      --color-link:    #6dbbe8;
+      --font-sans:     'Geist', system-ui, sans-serif;
+      --font-serif:    'Instrument Serif', serif;
+      --font-mono:     'Geist Mono', ui-monospace, monospace;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--color-paper);
+      color: var(--color-ink);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 3rem 2rem;
+    }
+
+    .frame { max-width: 1080px; width: 100%; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.66rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--color-muted);
+      margin-bottom: 0.5rem;
+    }
+
+    h1 {
+      font-family: var(--font-serif);
+      font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem);
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      color: var(--color-ink);
+      margin-bottom: 1.5rem;
+    }
+
+    svg { width: 100%; min-width: 960px; display: block; }
+    @media print {
+      .diagram-container { overflow-x: visible; }
+      svg { min-width: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Architecture · mikeodnis.dev Platform</p>
+    <h1>Unified API Gateway &amp; Edge CDN Topology</h1>
+
+    <div class="diagram-container">
+      <svg viewBox="0 0 960 600" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="platform-architecture-title platform-architecture-desc">
+        <title id="platform-architecture-title">Unified API Gateway and Edge CDN Topology</title>
+        <desc id="platform-architecture-desc">Architecture diagram showing clients routing through Caddy Gateway into Railway private mesh services and PostgreSQL, alongside Cloudflare CDN Worker and R2 storage.</desc>
+        <defs>
+          <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#a8a8c3"/></marker>
+          <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#aaa8ee"/></marker>
+          <marker id="arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#6dbbe8"/></marker>
+        </defs>
+
+        <rect width="100%" height="100%" fill="#0c0c14"/>
+
+        <!-- Zones (drawn before arrows and nodes) -->
+        <rect x="40" y="144" width="596" height="364" rx="8"
+              fill="rgba(232,233,255,0.02)" stroke="#2c2c3c" stroke-width="0.8"/>
+        <rect x="172" y="148" width="144" height="12" rx="2" fill="#0c0c14"/>
+        <text x="244" y="157" fill="#8d8da1" font-size="7" font-family="'Geist Mono', monospace"
+              text-anchor="middle" letter-spacing="0.14em">RAILWAY PRIVATE MESH</text>
+
+        <rect x="668" y="144" width="252" height="364" rx="8"
+              fill="rgba(232,233,255,0.02)" stroke="#2c2c3c" stroke-width="0.8"/>
+        <rect x="676" y="148" width="108" height="12" rx="2" fill="#0c0c14"/>
+        <text x="730" y="157" fill="#8d8da1" font-size="7" font-family="'Geist Mono', monospace"
+              text-anchor="middle" letter-spacing="0.14em">CLOUDFLARE EDGE</text>
+
+        <!-- Arrows (drawn before nodes) -->
+        <!-- Clients -> Caddy Gateway -->
+        <line x1="184" y1="72" x2="252" y2="72" stroke="#6dbbe8" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+
+        <!-- Caddy Gateway -> CDN Worker (single-bend L-path) -->
+        <path d="M 432,72 H 788 Q 796,72 796,80 V 184"
+              fill="none" stroke="#aaa8ee" stroke-width="1.4" marker-end="url(#arrow-accent)"/>
+
+        <!-- Caddy Gateway -> Core, Hasura & Health, Media (fanned bottom ports: 292, 340, 388) -->
+        <path d="M 292,104 V 124 Q 292,132 284,132 H 152 Q 144,132 144,140 V 184"
+              fill="none" stroke="#aaa8ee" stroke-width="1.2" marker-end="url(#arrow-accent)"/>
+        <line x1="340" y1="104" x2="340" y2="184" stroke="#a8a8c3" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <path d="M 388,104 V 124 Q 388,132 396,132 H 524 Q 532,132 532,140 V 184"
+              fill="none" stroke="#aaa8ee" stroke-width="1.2" marker-end="url(#arrow-accent)"/>
+
+        <!-- Core, Hasura & Health, Media -> PostgreSQL 16 (fanned PG top ports: 224, 340, 456) -->
+        <path d="M 144,244 V 324 Q 144,332 152,332 H 216 Q 224,332 224,340 V 412"
+              fill="none" stroke="#a8a8c3" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <line x1="340" y1="244" x2="340" y2="412" stroke="#a8a8c3" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <path d="M 508,244 V 324 Q 508,332 500,332 H 464 Q 456,332 456,340 V 412"
+              fill="none" stroke="#a8a8c3" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+        <!-- Media Service -> CDN Worker (dashed Cache Purge API) -->
+        <line x1="616" y1="212" x2="692" y2="212" stroke="#a8a8c3" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+
+        <!-- Media Service -> Cloudflare R2 (L-path from fanned bottom port 576) -->
+        <path d="M 576,244 V 432 Q 576,440 584,440 H 692"
+              fill="none" stroke="#6dbbe8" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+
+        <!-- CDN Worker -> Cloudflare R2 -->
+        <line x1="796" y1="244" x2="796" y2="412" stroke="#a8a8c3" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+        <!-- Arrow Labels (8px gap from stroke, open canvas, never over nodes) -->
+        <rect x="196" y="52" width="44" height="12" rx="2" fill="#0c0c14"/>
+        <text x="218" y="61" fill="#6dbbe8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">HTTPS</text>
+
+        <rect x="548" y="52" width="112" height="12" rx="2" fill="#0c0c14"/>
+        <text x="604" y="61" fill="#aaa8ee" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">PROXY SECRET</text>
+
+        <rect x="180" y="112" width="76" height="12" rx="2" fill="#0c0c14"/>
+        <text x="218" y="121" fill="#aaa8ee" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">/V1/CORE</text>
+
+        <rect x="348" y="156" width="68" height="12" rx="2" fill="#0c0c14"/>
+        <text x="382" y="165" fill="#a8a8c3" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">/V1/LINKS</text>
+
+        <rect x="436" y="112" width="76" height="12" rx="2" fill="#0c0c14"/>
+        <text x="474" y="121" fill="#aaa8ee" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">/V1/MEDIA</text>
+
+        <rect x="152" y="312" width="64" height="12" rx="2" fill="#0c0c14"/>
+        <text x="184" y="321" fill="#8d8da1" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">CTE / PG</text>
+
+        <rect x="348" y="320" width="44" height="12" rx="2" fill="#0c0c14"/>
+        <text x="370" y="329" fill="#8d8da1" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">SQL</text>
+
+        <rect x="460" y="312" width="40" height="12" rx="2" fill="#0c0c14"/>
+        <text x="480" y="321" fill="#8d8da1" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">PGX</text>
+
+        <rect x="628" y="192" width="52" height="12" rx="2" fill="#0c0c14"/>
+        <text x="654" y="201" fill="#8d8da1" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">PURGE</text>
+
+        <rect x="596" y="420" width="76" height="12" rx="2" fill="#0c0c14"/>
+        <text x="634" y="429" fill="#6dbbe8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">S3 PUT/COPY</text>
+
+        <rect x="804" y="320" width="84" height="12" rx="2" fill="#0c0c14"/>
+        <text x="846" y="329" fill="#a8a8c3" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">R2 BINDING</text>
+
+        <!-- Node 1: Clients (input) -->
+        <rect x="40" y="44" width="144" height="60" rx="6" fill="#0c0c14"/>
+        <rect x="40" y="44" width="144" height="60" rx="6" fill="rgba(168,168,195,0.08)" stroke="#8d8da1" stroke-width="1"/>
+        <rect x="48" y="52" width="28" height="12" rx="2" fill="transparent" stroke="rgba(141,141,161,0.45)" stroke-width="0.8"/>
+        <text x="62" y="61" fill="#8d8da1" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">EXT</text>
+        <text x="112" y="78" fill="#e8e9ff" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Clients</text>
+        <text x="112" y="94" fill="#a8a8c3" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">Web · PWA · CLI</text>
+
+        <!-- Node 2: Caddy Gateway (FOCAL #1) -->
+        <rect x="252" y="44" width="180" height="60" rx="6" fill="#0c0c14"/>
+        <rect x="252" y="44" width="180" height="60" rx="6" fill="rgba(136,132,213,0.14)" stroke="#aaa8ee" stroke-width="1.2"/>
+        <rect x="260" y="52" width="32" height="12" rx="2" fill="transparent" stroke="rgba(170,168,238,0.55)" stroke-width="0.8"/>
+        <text x="276" y="61" fill="#aaa8ee" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">EDGE</text>
+        <text x="342" y="78" fill="#e8e9ff" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Caddy Gateway</text>
+        <text x="342" y="94" fill="#a8a8c3" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">api.mikeodnis.dev</text>
+
+        <!-- Node 3: Core Service (backend) -->
+        <rect x="60" y="184" width="168" height="60" rx="6" fill="#0c0c14"/>
+        <rect x="60" y="184" width="168" height="60" rx="6" fill="#15151f" stroke="#e8e9ff" stroke-width="1"/>
+        <rect x="68" y="192" width="28" height="12" rx="2" fill="transparent" stroke="#45455d" stroke-width="0.8"/>
+        <text x="82" y="201" fill="#a8a8c3" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">API</text>
+        <text x="144" y="218" fill="#e8e9ff" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Core Service</text>
+        <text x="144" y="234" fill="#a8a8c3" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">Bun · Elysia · Redis</text>
+
+        <!-- Node 4: Hasura & Health (backend) -->
+        <rect x="256" y="184" width="168" height="60" rx="6" fill="#0c0c14"/>
+        <rect x="256" y="184" width="168" height="60" rx="6" fill="#15151f" stroke="#e8e9ff" stroke-width="1"/>
+        <rect x="264" y="192" width="32" height="12" rx="2" fill="transparent" stroke="#45455d" stroke-width="0.8"/>
+        <text x="280" y="201" fill="#a8a8c3" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">GQL</text>
+        <text x="340" y="218" fill="#e8e9ff" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Hasura &amp; Health</text>
+        <text x="340" y="234" fill="#a8a8c3" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">Allowlist · :8000</text>
+
+        <!-- Node 5: Media Service (backend) -->
+        <rect x="448" y="184" width="168" height="60" rx="6" fill="#0c0c14"/>
+        <rect x="448" y="184" width="168" height="60" rx="6" fill="#15151f" stroke="#e8e9ff" stroke-width="1"/>
+        <rect x="456" y="192" width="28" height="12" rx="2" fill="transparent" stroke="#45455d" stroke-width="0.8"/>
+        <text x="470" y="201" fill="#a8a8c3" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">GO</text>
+        <text x="532" y="218" fill="#e8e9ff" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Media Service</text>
+        <text x="532" y="234" fill="#a8a8c3" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">Go 1.26 · Hexagonal</text>
+
+        <!-- Node 6: PostgreSQL 16 (store) -->
+        <rect x="148" y="412" width="384" height="60" rx="6" fill="#0c0c14"/>
+        <rect x="148" y="412" width="384" height="60" rx="6" fill="rgba(232,233,255,0.05)" stroke="#a8a8c3" stroke-width="1"/>
+        <rect x="156" y="420" width="24" height="12" rx="2" fill="transparent" stroke="#45455d" stroke-width="0.8"/>
+        <text x="168" y="429" fill="#a8a8c3" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">DB</text>
+        <text x="340" y="446" fill="#e8e9ff" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">PostgreSQL 16</text>
+        <text x="340" y="462" fill="#a8a8c3" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">core · media · links schemas</text>
+
+        <!-- Node 7: CDN Worker (FOCAL #2) -->
+        <rect x="692" y="184" width="208" height="60" rx="6" fill="#0c0c14"/>
+        <rect x="692" y="184" width="208" height="60" rx="6" fill="rgba(136,132,213,0.14)" stroke="#aaa8ee" stroke-width="1.2"/>
+        <rect x="700" y="192" width="32" height="12" rx="2" fill="transparent" stroke="rgba(170,168,238,0.55)" stroke-width="0.8"/>
+        <text x="716" y="201" fill="#aaa8ee" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">CDN</text>
+        <text x="796" y="218" fill="#e8e9ff" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">CDN Worker</text>
+        <text x="796" y="234" fill="#a8a8c3" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">cdn.mikeodnis.dev · HMAC</text>
+
+        <!-- Node 8: Cloudflare R2 (store) -->
+        <rect x="692" y="412" width="208" height="60" rx="6" fill="#0c0c14"/>
+        <rect x="692" y="412" width="208" height="60" rx="6" fill="rgba(232,233,255,0.05)" stroke="#a8a8c3" stroke-width="1"/>
+        <rect x="700" y="420" width="24" height="12" rx="2" fill="transparent" stroke="#45455d" stroke-width="0.8"/>
+        <text x="712" y="429" fill="#a8a8c3" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">R2</text>
+        <text x="796" y="446" fill="#e8e9ff" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Cloudflare R2</text>
+        <text x="796" y="462" fill="#a8a8c3" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">cdn · assets/private/staging</text>
+
+        <!-- Legend strip -->
+        <line x1="40" y1="536" x2="920" y2="536" stroke="#2c2c3c" stroke-width="0.8"/>
+        <text x="40" y="552" fill="#a8a8c3" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em">LEGEND</text>
+
+        <rect x="40" y="564" width="14" height="10" rx="2" fill="rgba(136,132,213,0.14)" stroke="#aaa8ee" stroke-width="1"/>
+        <text x="60" y="572" fill="#a8a8c3" font-size="8.5" font-family="'Geist', sans-serif">Focal edge gateway</text>
+
+        <rect x="192" y="564" width="14" height="10" rx="2" fill="#15151f" stroke="#e8e9ff" stroke-width="1"/>
+        <text x="212" y="572" fill="#a8a8c3" font-size="8.5" font-family="'Geist', sans-serif">Mesh service</text>
+
+        <rect x="312" y="564" width="14" height="10" rx="2" fill="rgba(232,233,255,0.05)" stroke="#a8a8c3" stroke-width="1"/>
+        <text x="332" y="572" fill="#a8a8c3" font-size="8.5" font-family="'Geist', sans-serif">Data store</text>
+
+        <rect x="424" y="564" width="14" height="10" rx="2" fill="rgba(168,168,195,0.08)" stroke="#8d8da1" stroke-width="1"/>
+        <text x="444" y="572" fill="#a8a8c3" font-size="8.5" font-family="'Geist', sans-serif">External client</text>
+
+        <line x1="556" y1="569" x2="584" y2="569" stroke="#6dbbe8" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+        <text x="592" y="572" fill="#a8a8c3" font-size="8.5" font-family="'Geist', sans-serif">External / S3</text>
+
+        <line x1="688" y1="569" x2="716" y2="569" stroke="#aaa8ee" stroke-width="1.4" marker-end="url(#arrow-accent)"/>
+        <text x="724" y="572" fill="#a8a8c3" font-size="8.5" font-family="'Geist', sans-serif">Primary path</text>
+
+        <line x1="816" y1="569" x2="844" y2="569" stroke="#a8a8c3" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+        <text x="852" y="572" fill="#a8a8c3" font-size="8.5" font-family="'Geist', sans-serif">Async purge</text>
+      </svg>
+    </div>
+  </div>
+</body>
+</html>

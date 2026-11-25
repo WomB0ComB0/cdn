@@ -12,34 +12,9 @@ Production Edge CDN for `mikeodnis.dev` powered by **Cloudflare Workers** + **Cl
 
 ## System Topology (Edge + Control Plane)
 
-```mermaid
-flowchart LR
-    Client["Browser / App Client"]
-    DNS["Vercel DNS\ncdn.mikeodnis.dev"]
+![Unified API Gateway and Edge CDN Topology](./docs/diagrams/platform-architecture.svg)
 
-    subgraph GatewayLayer["Railway Edge Gateway"]
-        GW["Caddy 2.11\nTLS · HSTS · trusted_proxies_strict\nAuthenticated X-Gateway-Client-IP Handoff"]
-    end
-
-    subgraph Edge["Cloudflare Edge (WomB0ComB0/cdn)"]
-        Worker["cdn-worker\nHexagonal TS Worker (~186 KiB gzip w/ brand assets)\nNative Edge RateLimit Bindings (Per-Visitor IP)"]
-        Cache["Cloudflare Edge Cache\n(caches.default)"]
-        R2[("Cloudflare R2\nBucket: cdn")]
-        ImgProxy["imgproxy (optional)\n/img/* · 10s AbortSignal timeout"]
-    end
-
-    subgraph ControlPlane["api.mikeodnis.dev (WomB0ComB0/api)"]
-        Media["Go 1.26 Hexagonal Media Service\n/v1/media/upload · /presign · /sign"]
-    end
-
-    Client -->|"GET / HEAD / OPTIONS"| DNS --> GW --> Worker
-    Worker <-->|"Public /assets/* immutable cache"| Cache
-    Worker -->|"Native R2_BUCKET binding"| R2
-    Worker -.->|"On-the-fly resize / WebP / AVIF"| ImgProxy
-    ImgProxy -.-> R2
-    Client -->|"Upload / Presign / Sign URL"| Media
-    Media -->|"S3 API write · shared SIGNING_SECRET"| R2
-```
+*Interactive standalone diagram: [`docs/diagrams/platform-architecture.html`](./docs/diagrams/platform-architecture.html)*
 
 ---
 
@@ -162,6 +137,10 @@ Pushing an annotated SemVer tag (`vX.Y.Z`) or triggering `workflow_dispatch` run
 ---
 
 ## Security & Performance Controls
+
+![Security and Edge Trust Boundaries](./docs/diagrams/security-trust-boundaries.svg)
+
+*Interactive standalone diagrams: [`docs/diagrams/security-trust-boundaries.html`](./docs/diagrams/security-trust-boundaries.html) · [`docs/diagrams/presigned-upload-sequence.html`](./docs/diagrams/presigned-upload-sequence.html)*
 
 | Control | Implementation | Protection / Benefit |
 | :--- | :--- | :--- |

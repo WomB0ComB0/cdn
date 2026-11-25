@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 960 600" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="security-trust-boundaries-title security-trust-boundaries-desc" id="security-trust-boundaries-root">
+        <title id="security-trust-boundaries-title">Security and Edge Trust Boundaries</title>
+        <desc id="security-trust-boundaries-desc">Secure paved road architecture showing authenticated traffic flowing through Caddy and CDN Worker gates into private services while Hasura admin probes and staging reads are blocked at the edge boundary.</desc>
+        <defs>
+      <style>@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&amp;family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500;600&amp;family=Noto+Serif:ital@0;1&amp;family=Noto+Sans+KR:wght@400;500;600&amp;family=Noto+Serif+KR:wght@400&amp;family=Noto+Sans+TC:wght@400;500;600&amp;family=Noto+Serif+TC:wght@400&amp;display=swap');
+      #security-trust-boundaries-root { --color-paper:   #0c0c14;
+      --color-paper-2: #15151f;
+      --color-ink:     #e8e9ff;
+      --color-muted:   #a8a8c3;
+      --color-soft:    #8d8da1;
+      --color-accent:  #aaa8ee;
+      --color-link:    #6dbbe8;
+      --font-sans:     'Geist', system-ui, sans-serif;
+      --font-serif:    'Instrument Serif', serif;
+      --font-mono:     'Geist Mono', ui-monospace, monospace; }
+      #security-trust-boundaries-root { font-family: var(--font-sans); color: var(--color-ink); }
+      #security-trust-boundaries-root .diagram-container { width: 100%; overflow-x: auto; }
+      @media print {
+#security-trust-boundaries-root .diagram-container { overflow-x: visible; }
+}</style>
+          <marker id="security-trust-boundaries-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#a8a8c3"/></marker>
+          <marker id="security-trust-boundaries-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#aaa8ee"/></marker>
+          <marker id="security-trust-boundaries-arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#6dbbe8"/></marker>
+        </defs>
+
+        <rect width="100%" height="100%" fill="#0c0c14"/>
+
+        <!-- 3 Trust Boundary Zones (drawn before arrows and nodes) -->
+        <rect x="40" y="44" width="180" height="460" rx="8"
+              fill="#e8e9ff" stroke="#2c2c3c" stroke-width="0.8" fill-opacity="0.02"/>
+        <rect x="52" y="48" width="116" height="12" rx="2" fill="#0c0c14"/>
+        <text x="110" y="57" fill="#8d8da1" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.14em">PUBLIC INTERNET</text>
+
+        <rect x="316" y="44" width="224" height="460" rx="8"
+              fill="#8884d5" stroke="#aaa8ee" stroke-width="1" stroke-dasharray="4,4" fill-opacity="0.04" stroke-opacity="0.45"/>
+        <rect x="328" y="48" width="136" height="12" rx="2" fill="#0c0c14"/>
+        <text x="396" y="57" fill="#aaa8ee" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.14em">PRIVILEGED EDGE GATES</text>
+
+        <rect x="636" y="44" width="284" height="460" rx="8"
+              fill="#e8e9ff" stroke="#2c2c3c" stroke-width="0.8" fill-opacity="0.02"/>
+        <rect x="648" y="48" width="164" height="12" rx="2" fill="#0c0c14"/>
+        <text x="730" y="57" fill="#8d8da1" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.14em">PRIVATE MESH &amp; STORAGE</text>
+
+        <!-- Permitted Ingress & Paved Road Connectors -->
+        <!-- 1. Authenticated Caller -> Caddy Gate -->
+        <line x1="204" y1="136" x2="336" y2="136" stroke="#6dbbe8" stroke-width="1.2" marker-end="url(#security-trust-boundaries-arrow-link)"/>
+
+        <!-- 2. Caddy Gate -> CDN Worker Gate (Proxy Secret + X-Gateway-Client-IP) -->
+        <line x1="428" y1="168" x2="428" y2="256" stroke="#aaa8ee" stroke-width="1.4" marker-end="url(#security-trust-boundaries-arrow-accent)"/>
+
+        <!-- 3. Caddy Gate -> Core & Media APIs -->
+        <line x1="520" y1="124" x2="660" y2="124" stroke="#aaa8ee" stroke-width="1.4" marker-end="url(#security-trust-boundaries-arrow-accent)"/>
+
+        <!-- 4. Caddy Gate -> Hasura GraphQL (allowlisted /graphql only) -->
+        <path d="M 520,152 H 584 Q 592,152 592,160 V 280 Q 592,288 600,288 H 660"
+              fill="none" stroke="#a8a8c3" stroke-width="1.2" marker-end="url(#security-trust-boundaries-arrow)"/>
+
+        <!-- 5. CDN Worker Gate -> R2 Storage (live prefixes only) -->
+        <path d="M 520,288 H 560 Q 568,288 568,296 V 408 Q 568,416 576,416 H 660"
+              fill="none" stroke="#a8a8c3" stroke-width="1.2" marker-end="url(#security-trust-boundaries-arrow)"/>
+
+        <!-- Forbidden Bypass Paths (visibly stop BEFORE the Edge Gate boundary at x=304) -->
+        <!-- 6. Admin header / /v1/metadata probe stopped at boundary -->
+        <line x1="204" y1="400" x2="300" y2="400" stroke="#8d8da1" stroke-width="1.2" stroke-dasharray="4,3"/>
+        <line x1="300" y1="392" x2="300" y2="408" stroke="#e8e9ff" stroke-width="1.6"/>
+
+        <!-- 7. Direct staging/* read stopped at boundary -->
+        <line x1="204" y1="428" x2="300" y2="428" stroke="#8d8da1" stroke-width="1.2" stroke-dasharray="4,3"/>
+        <line x1="300" y1="420" x2="300" y2="436" stroke="#e8e9ff" stroke-width="1.6"/>
+
+        <!-- Arrow Labels (8px gap from stroke, open canvas) -->
+        <rect x="224" y="116" width="88" height="12" rx="2" fill="#0c0c14"/>
+        <text x="268" y="125" fill="#6dbbe8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">PERMIT: TLS</text>
+
+        <rect x="436" y="204" width="96" height="12" rx="2" fill="#0c0c14"/>
+        <text x="484" y="213" fill="#aaa8ee" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">PROXY SECRET</text>
+
+        <rect x="544" y="104" width="96" height="12" rx="2" fill="#0c0c14"/>
+        <text x="592" y="113" fill="#aaa8ee" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">VERIFIED IP</text>
+
+        <rect x="600" y="212" width="84" height="12" rx="2" fill="#0c0c14"/>
+        <text x="642" y="221" fill="#a8a8c3" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">GQL ALLOWLIST</text>
+
+        <rect x="576" y="344" width="88" height="12" rx="2" fill="#0c0c14"/>
+        <text x="620" y="353" fill="#a8a8c3" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">HMAC / LIVE</text>
+
+        <rect x="216" y="380" width="80" height="12" rx="2" fill="#0c0c14"/>
+        <text x="256" y="389" fill="#e8e9ff" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">DENY: ADMIN</text>
+
+        <rect x="212" y="436" width="88" height="12" rx="2" fill="#0c0c14"/>
+        <text x="256" y="445" fill="#e8e9ff" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">DENY: STAGING</text>
+
+        <!-- Nodes (drawn after arrows) -->
+        <!-- Node 1: Authenticated Caller -->
+        <rect x="56" y="104" width="148" height="64" rx="6" fill="#0c0c14"/>
+        <rect x="56" y="104" width="148" height="64" rx="6" fill="#a8a8c3" stroke="#8d8da1" stroke-width="1" fill-opacity="0.08"/>
+        <rect x="64" y="112" width="32" height="12" rx="2" fill="none" stroke="#8d8da1" stroke-width="0.8" stroke-opacity="0.45"/>
+        <text x="80" y="121" fill="#8d8da1" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">AUTH</text>
+        <text x="130" y="140" fill="#e8e9ff" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Verified Caller</text>
+        <text x="130" y="156" fill="#a8a8c3" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">JWT · Key · HMAC</text>
+
+        <!-- Node 2: Blocked Bypass Probes -->
+        <rect x="56" y="380" width="148" height="64" rx="6" fill="#0c0c14"/>
+        <rect x="56" y="380" width="148" height="64" rx="6" fill="#e8e9ff" stroke="#45455d" stroke-width="1" stroke-dasharray="4,3" fill-opacity="0.02"/>
+        <rect x="64" y="388" width="32" height="12" rx="2" fill="none" stroke="#45455d" stroke-width="0.8"/>
+        <text x="80" y="397" fill="#8d8da1" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">DENY</text>
+        <text x="130" y="416" fill="#e8e9ff" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Bypass Probes</text>
+        <text x="130" y="432" fill="#a8a8c3" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">/metadata · staging/*</text>
+
+        <!-- Node 3: Caddy 2.11 Gate (FOCAL #1) -->
+        <rect x="336" y="104" width="184" height="64" rx="6" fill="#0c0c14"/>
+        <rect x="336" y="104" width="184" height="64" rx="6" fill="#8884d5" stroke="#aaa8ee" stroke-width="1.2" fill-opacity="0.14"/>
+        <rect x="344" y="112" width="32" height="12" rx="2" fill="none" stroke="#aaa8ee" stroke-width="0.8" stroke-opacity="0.55"/>
+        <text x="360" y="121" fill="#aaa8ee" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">GATE</text>
+        <text x="428" y="140" fill="#e8e9ff" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Caddy 2.11 Gate</text>
+        <text x="428" y="156" fill="#a8a8c3" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">strict XFF · strip admin</text>
+
+        <!-- Node 4: CDN Worker Gate (FOCAL #2) -->
+        <rect x="336" y="256" width="184" height="64" rx="6" fill="#0c0c14"/>
+        <rect x="336" y="256" width="184" height="64" rx="6" fill="#8884d5" stroke="#aaa8ee" stroke-width="1.2" fill-opacity="0.14"/>
+        <rect x="344" y="264" width="32" height="12" rx="2" fill="none" stroke="#aaa8ee" stroke-width="0.8" stroke-opacity="0.55"/>
+        <text x="360" y="273" fill="#aaa8ee" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">GATE</text>
+        <text x="428" y="292" fill="#e8e9ff" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">CDN Worker Gate</text>
+        <text x="428" y="308" fill="#a8a8c3" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">HMAC · Per-IP RL · CSP</text>
+
+        <!-- Node 5: Core & Media APIs -->
+        <rect x="660" y="92" width="236" height="64" rx="6" fill="#0c0c14"/>
+        <rect x="660" y="92" width="236" height="64" rx="6" fill="#15151f" stroke="#e8e9ff" stroke-width="1"/>
+        <rect x="668" y="100" width="28" height="12" rx="2" fill="none" stroke="#45455d" stroke-width="0.8"/>
+        <text x="682" y="109" fill="#a8a8c3" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">API</text>
+        <text x="778" y="128" fill="#e8e9ff" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Core &amp; Media APIs</text>
+        <text x="778" y="144" fill="#a8a8c3" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">JWT exp · read scope · no-store</text>
+
+        <!-- Node 6: Hasura GraphQL -->
+        <rect x="660" y="256" width="236" height="64" rx="6" fill="#0c0c14"/>
+        <rect x="660" y="256" width="236" height="64" rx="6" fill="#15151f" stroke="#e8e9ff" stroke-width="1"/>
+        <rect x="668" y="264" width="32" height="12" rx="2" fill="none" stroke="#45455d" stroke-width="0.8"/>
+        <text x="684" y="273" fill="#a8a8c3" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">GQL</text>
+        <text x="778" y="292" fill="#e8e9ff" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Hasura GraphQL</text>
+        <text x="778" y="308" fill="#a8a8c3" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">/graphql only · 256KB cap</text>
+
+        <!-- Node 7: Cloudflare R2 -->
+        <rect x="660" y="384" width="236" height="64" rx="6" fill="#0c0c14"/>
+        <rect x="660" y="384" width="236" height="64" rx="6" fill="#e8e9ff" stroke="#a8a8c3" stroke-width="1" fill-opacity="0.05"/>
+        <rect x="668" y="392" width="24" height="12" rx="2" fill="none" stroke="#45455d" stroke-width="0.8"/>
+        <text x="680" y="401" fill="#a8a8c3" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">R2</text>
+        <text x="778" y="420" fill="#e8e9ff" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Cloudflare R2 Bucket</text>
+        <text x="778" y="436" fill="#a8a8c3" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">assets/* · private/* (no-store)</text>
+
+        <!-- Legend strip -->
+        <line x1="40" y1="536" x2="920" y2="536" stroke="#2c2c3c" stroke-width="0.8"/>
+        <text x="40" y="552" fill="#a8a8c3" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em">LEGEND</text>
+
+        <rect x="40" y="564" width="14" height="10" rx="2" fill="#8884d5" stroke="#aaa8ee" stroke-width="1" fill-opacity="0.14"/>
+        <text x="60" y="572" fill="#a8a8c3" font-size="8.5" font-family="'Geist', sans-serif">Privileged gate</text>
+
+        <rect x="176" y="564" width="14" height="10" rx="2" fill="#15151f" stroke="#e8e9ff" stroke-width="1"/>
+        <text x="196" y="572" fill="#a8a8c3" font-size="8.5" font-family="'Geist', sans-serif">Isolated runtime</text>
+
+        <line x1="316" y1="569" x2="344" y2="569" stroke="#6dbbe8" stroke-width="1.2" marker-end="url(#security-trust-boundaries-arrow-link)"/>
+        <text x="352" y="572" fill="#a8a8c3" font-size="8.5" font-family="'Geist', sans-serif">Permitted ingress</text>
+
+        <line x1="476" y1="569" x2="504" y2="569" stroke="#aaa8ee" stroke-width="1.4" marker-end="url(#security-trust-boundaries-arrow-accent)"/>
+        <text x="512" y="572" fill="#a8a8c3" font-size="8.5" font-family="'Geist', sans-serif">Authenticated handoff</text>
+
+        <line x1="664" y1="569" x2="692" y2="569" stroke="#8d8da1" stroke-width="1.2" stroke-dasharray="4,3"/>
+        <line x1="692" y1="563" x2="692" y2="575" stroke="#e8e9ff" stroke-width="1.6"/>
+        <text x="700" y="572" fill="#a8a8c3" font-size="8.5" font-family="'Geist', sans-serif">Blocked at boundary</text>
+      </svg>
