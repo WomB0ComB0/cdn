@@ -37,9 +37,10 @@ jobs:
           (cd cloudflare-worker && bun run typecheck)
           (cd scripts && bun install --frozen-lockfile && bun run typecheck)
 
-      - name: Run unit & Hexagonal boundary tests
-        working-directory: ./cloudflare-worker
-        run: bun test
+      - name: Run unit, scripts & Hexagonal boundary tests
+        run: |
+          (cd cloudflare-worker && bun test)
+          (cd scripts && bun test)
 
       - name: Verify Cloudflare Worker bundle (dry-run)
         working-directory: ./cloudflare-worker

@@ -244,9 +244,29 @@ describe('cdn-worker hexagonal architecture (cdn.mikeodnis.dev)', () => {
       ctx
     );
     expect(stagedRes.status).toBe(404);
+
+    // Quarantined objects moved by continuous security scanner are NEVER servable from /quarantine/* or /img/quarantine/*
+    const quarantinedEnv = createMockEnv({
+      'quarantine/assets/u1/flagged.pdf': {
+        body: '%PDF-1.7 flagged',
+        contentType: 'application/pdf',
+      },
+    });
+    const quarantinedRes = await worker.fetch(
+      new Request('https://cdn.mikeodnis.dev/quarantine/assets/u1/flagged.pdf'),
+      quarantinedEnv,
+      ctx
+    );
+    expect(quarantinedRes.status).toBe(404);
+    const quarantinedImg = await worker.fetch(
+      new Request('https://cdn.mikeodnis.dev/img/quarantine/assets/u1/flagged.png?w=200'),
+      { ...quarantinedEnv, IMGPROXY_URL: 'https://img.mikeodnis.dev' },
+      ctx
+    );
+    expect(quarantinedImg.status).toBe(403);
   });
 
-  test('sandboxes SVG uploads with strict CSP to prevent Stored XSS', async () => {
+  test('sandboxes SVG uploads with strict CSP and hardens PDF responses', async () => {
     (globalThis as unknown as { caches: { default: Cache } }).caches = {
       default: createMockCache(),
     };
@@ -281,6 +301,24 @@ describe('cdn-worker hexagonal architecture (cdn.mikeodnis.dev)', () => {
     );
     expect(zipRes.status).toBe(200);
     expect(zipRes.headers.get('Content-Disposition')).toBe('attachment');
+
+    // PDF assets receive strict CSP + nosniff
+    const pdfEnv = createMockEnv({
+      'assets/books/guide.pdf': {
+        body: '%PDF-1.7 clean',
+        contentType: 'application/pdf',
+      },
+    });
+    const pdfRes = await worker.fetch(
+      new Request('https://cdn.mikeodnis.dev/assets/books/guide.pdf'),
+      pdfEnv,
+      ctx
+    );
+    expect(pdfRes.status).toBe(200);
+    expect(pdfRes.headers.get('X-Content-Type-Options')).toBe('nosniff');
+    expect(pdfRes.headers.get('Content-Security-Policy')).toBe(
+      "default-src 'none'; base-uri 'none'; form-action 'none'"
+    );
   });
 
   test('sends canonical Accept derived from explicit transform format and blocks upstream SVG from imgproxy', async () => {

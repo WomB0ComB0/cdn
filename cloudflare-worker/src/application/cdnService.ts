@@ -238,6 +238,9 @@ export function applySecurityHeaders(headers: Headers): void {
   if (contentType.includes('svg') || contentType.includes('html') || contentType.includes('xml')) {
     // Prevent Stored XSS when rendering user-uploaded SVGs/XML/HTML directly on the CDN origin
     headers.set('Content-Security-Policy', "default-src 'none'; sandbox");
+  } else if (contentType.includes('application/pdf')) {
+    // Restrict PDF responses from executing HTML/form/script contexts while keeping native PDF viewing functional
+    headers.set('Content-Security-Policy', "default-src 'none'; base-uri 'none'; form-action 'none'");
   }
   if (
     contentType.includes('text/html') ||

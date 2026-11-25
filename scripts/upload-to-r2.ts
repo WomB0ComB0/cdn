@@ -4,6 +4,7 @@ import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { resolveContainedPath } from '@resq-systems/security/paths';
 import mime from 'mime-types';
 import type { AssetManifest } from './generate-asset-manifest.js';
+import { scanBufferSecurity } from './lib/security-scanner.js';
 
 function requireEnv(name: string, fallbackName?: string): string {
   const value = process.env[name] || (fallbackName ? process.env[fallbackName] : undefined);
@@ -33,6 +34,16 @@ const r2Client = new S3Client({
 
 async function uploadFile(localPath: string, remotePath: string, contentType: string): Promise<void> {
   const fileContent = fs.readFileSync(localPath);
+  const scan = scanBufferSecurity({
+    filename: path.basename(localPath),
+    contentType,
+    bytes: new Uint8Array(fileContent.buffer, fileContent.byteOffset, fileContent.byteLength),
+  });
+  if (!scan.ok) {
+    throw new Error(
+      `Refusing to upload ${remotePath}: failed security pre-flight (${scan.findings.join(', ')})`
+    );
+  }
 
   const command = new PutObjectCommand({
     Bucket: BUCKET_NAME,
@@ -40,6 +51,10 @@ async function uploadFile(localPath: string, remotePath: string, contentType: st
     Body: fileContent,
     ContentType: contentType,
     CacheControl: 'public, max-age=31536000, immutable',
+    Metadata: {
+      sha256: scan.sha256,
+      'scanned-at': new Date().toISOString(),
+    },
   });
 
   try {
