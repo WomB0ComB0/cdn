@@ -431,10 +431,10 @@ export function renderCdnHomePage(): string {
               <a class="btn" href="/openapi.yaml">openapi.yaml</a>
             </div>
           </div>
-          <div id="live-pill" class="pill" aria-live="polite">
+          <a id="live-pill" class="pill" href="https://status.mikeodnis.dev" target="_blank" rel="noopener noreferrer" aria-live="polite" style="text-decoration:none">
             <span class="dot"></span>
-            <span>Edge operational</span>
-          </div>
+            <span>Edge operational · Status ↗</span>
+          </a>
         </div>
       </section>
 

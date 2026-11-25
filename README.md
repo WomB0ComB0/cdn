@@ -1,6 +1,7 @@
 # Edge CDN — `cdn.mikeodnis.dev`
 
 [![CI](https://img.shields.io/github/actions/workflow/status/WomB0ComB0/cdn/test.yml?branch=main&label=CI)](https://github.com/WomB0ComB0/cdn/actions/workflows/test.yml)
+[![Status](https://img.shields.io/badge/Status-status.mikeodnis.dev-4bde81?logo=betterstack&logoColor=white)](https://status.mikeodnis.dev)
 [![Release](https://img.shields.io/github/v/release/WomB0ComB0/cdn)](https://github.com/WomB0ComB0/cdn/releases)
 [![License](https://img.shields.io/github/license/WomB0ComB0/cdn)](LICENSE)
 
