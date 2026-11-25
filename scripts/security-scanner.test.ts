@@ -69,7 +69,11 @@ describe('cdn security scanner & open-PDF ingest pipeline', () => {
   test('scanPdfBuffer accepts clean PDFs and rejects active objects, hex-obfuscation, and polyglots', () => {
     const enc = new TextEncoder();
     expect(
-      scanPdfBuffer(enc.encode('%PDF-1.7\n1 0 obj << /Type /Catalog >> endobj\n%%EOF\n'))
+      scanPdfBuffer(
+        enc.encode(
+          '%PDF-1.7\n1 0 obj << /Type /Catalog /OpenAction [3 0 R /Fit] >> endobj\nstream\nrandom /JS /AA binary\nendstream\n%%EOF\n'
+        )
+      )
     ).toEqual([]);
 
     expect(

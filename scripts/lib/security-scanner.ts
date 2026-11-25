@@ -35,8 +35,9 @@ export interface ThreatHashResult {
   readonly signature: string | null;
 }
 
+const PDF_STREAM_BLOCK_RE = /\bstream\r?\n[\s\S]*?\bendstream\b/g;
 const PDF_ACTIVE_OBJECT_RE =
-  /\/(?:JavaScript|JS|Launch|OpenAction|AA|EmbeddedFile|RichMedia|XFA|SubmitForm|ImportData|GoToR|GoToE|Rendition|Sound|Movie)\b/;
+  /\/(?:JavaScript|EmbeddedFile|RichMedia|XFA)\b|\/S\s*\/(?:JavaScript|JS|Launch|SubmitForm|ImportData)\b|\/OpenAction\s*<</;
 const PDF_POLYGLOT_RE = /(?:<\s*script\b|<!doctype\s+html\b|<\?php\b)/i;
 const SVG_OPENING_RE = /^\s*(?:<\?xml[^>]*\?>\s*)?(?:<!DOCTYPE\s+svg[^>]*>\s*)?(?:<!--[\s\S]*?-->\s*)*<svg\b/i;
 const SVG_ACTIVE_RE =
@@ -238,13 +239,14 @@ export function scanPdfBuffer(bytes: Uint8Array): readonly string[] {
     'latin1'
   );
 
-  const directMatch = PDF_ACTIVE_OBJECT_RE.exec(latin1);
+  const metadataOnly = latin1.replace(PDF_STREAM_BLOCK_RE, ' ');
+  const directMatch = PDF_ACTIVE_OBJECT_RE.exec(metadataOnly);
   if (directMatch) {
-    findings.push(`pdf_active_object:${directMatch[0]}`);
+    findings.push(`pdf_active_object:${directMatch[0].replace(/\s+/g, ' ')}`);
   } else {
-    const decodedMatch = PDF_ACTIVE_OBJECT_RE.exec(decodePdfHexNames(latin1));
+    const decodedMatch = PDF_ACTIVE_OBJECT_RE.exec(decodePdfHexNames(metadataOnly));
     if (decodedMatch) {
-      findings.push(`pdf_obfuscated_active_object:${decodedMatch[0]}`);
+      findings.push(`pdf_obfuscated_active_object:${decodedMatch[0].replace(/\s+/g, ' ')}`);
     }
   }
 
