@@ -316,6 +316,13 @@ export function renderCdnDocsPage(): string {
 </html>`;
 }
 
+/**
+ * The Upload Studio PWA. Its inline script lives in this template literal, so every backslash in
+ * the script is written doubled (`\\s`) to reach the browser as one; a single `\s` would arrive as
+ * `s` and leave the script unparseable. Not String.raw: the bundler rewrites non-ASCII characters
+ * in templates as \u escapes, which String.raw would then print literally. Guarded by
+ * uploadStudioScript.test.ts.
+ */
 export function renderUploadStudioPage(): string {
   return `<!doctype html>
 <html lang="en" class="dark">
@@ -587,10 +594,10 @@ export function renderUploadStudioPage(): string {
       wav: ['wav'], ogg: ['ogg'], zip: ['zip'], woff2: ['woff2'], svg: ['svg'],
       text: ['txt', 'csv', 'json', 'md'],
     };
-    const BIDI_OR_CTRL_RE = /[\u0000-\u001F\u007F\u061C\u200E\u200F\u202A-\u202E\u2066-\u2069]/;
-    const SVG_OPEN_RE = /^\s*(?:<\?xml[^>]*\?>\s*)?(?:<!DOCTYPE\s+svg[^>]*>\s*)?(?:<!--[\s\S]*?-->\s*)*<svg\b/i;
-    const SVG_ACTIVE_RE = /<\s*(?:script|foreignobject|iframe|object|embed|applet|meta|animate|animatemotion|animatetransform|set|handler)\b|<!\s*entity\b|<!\s*doctype\s+[^>]+\[|\bon[a-z]{2,32}\s*=|(?:javascript|vbscript)\s*:|data\s*:\s*(?:text\/html|image\/svg\+xml)|<\s*use\b[^>]*\b(?:xlink:)?href\s*=\s*["']?\s*(?:https?:|\/\/|data:)|@import\b|expression\s*\(/i;
-    const HTML_PREFIX_RE = /^\s*(?:<!doctype\s+html|<html\b|<script\b|<iframe\b|<\?php\b)/i;
+    const BIDI_OR_CTRL_RE = /[\\u0000-\\u001F\\u007F\\u061C\\u200E\\u200F\\u202A-\\u202E\\u2066-\\u2069]/;
+    const SVG_OPEN_RE = /^\\s*(?:<\\?xml[^>]*\\?>\\s*)?(?:<!DOCTYPE\\s+svg[^>]*>\\s*)?(?:<!--[\\s\\S]*?-->\\s*)*<svg\\b/i;
+    const SVG_ACTIVE_RE = /<\\s*(?:script|foreignobject|iframe|object|embed|applet|meta|animate|animatemotion|animatetransform|set|handler)\\b|<!\\s*entity\\b|<!\\s*doctype\\s+[^>]+\\[|\\bon[a-z]{2,32}\\s*=|(?:javascript|vbscript)\\s*:|data\\s*:\\s*(?:text\\/html|image\\/svg\\+xml)|<\\s*use\\b[^>]*\\b(?:xlink:)?href\\s*=\\s*["']?\\s*(?:https?:|\\/\\/|data:)|@import\\b|expression\\s*\\(/i;
+    const HTML_PREFIX_RE = /^\\s*(?:<!doctype\\s+html|<html\\b|<script\\b|<iframe\\b|<\\?php\\b)/i;
     const MP4_BRANDS = new Set(['isom','iso2','iso4','iso5','iso6','mp41','mp42','mmp4','avc1','dash','M4V ','M4A ','M4P ','M4B ','qt  ','3gp4','3gp5','3g2a','MSNV']);
     function decodeEntities(s) {
       return s
