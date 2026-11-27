@@ -28,11 +28,12 @@ import {
   CDN_ICON_SVG,
   CDN_OG_IMAGE_PNG,
 } from './brandAssets.js';
+import { GEIST_MONO_WOFF2, GEIST_OFL_TXT, GEIST_WOFF2 } from './brandFonts.js';
+import { renderCdnHomePage } from './homePage.js';
 import {
   CDN_MANIFEST_JSON,
   CDN_SW_JS,
   renderCdnDocsPage,
-  renderCdnHomePage,
   renderUploadStudioPage,
 } from './pages.js';
 
@@ -42,10 +43,36 @@ const log = Logger.getLogger('[cdn-worker]', {
   colorize: false,
 });
 
+interface BrandFile {
+  readonly body: Uint8Array | string;
+  readonly contentType: string;
+  readonly cacheControl: string;
+}
+
+const IMMUTABLE_CACHE = 'public, max-age=31536000, immutable';
+
+// Shared subdomain fonts (Geist, Geist Mono), loaded same-origin by the root's stylesheet. The font
+// version is in each file name, so the woff2 files can be cached as immutable.
+const BRAND_FILES: ReadonlyMap<string, BrandFile> = new Map([
+  [
+    '/_brand/fonts/geist-v1.9-latin.woff2',
+    { body: GEIST_WOFF2, contentType: 'font/woff2', cacheControl: IMMUTABLE_CACHE },
+  ],
+  [
+    '/_brand/fonts/geist-mono-v1.9-latin.woff2',
+    { body: GEIST_MONO_WOFF2, contentType: 'font/woff2', cacheControl: IMMUTABLE_CACHE },
+  ],
+  [
+    '/_brand/fonts/OFL.txt',
+    { body: GEIST_OFL_TXT, contentType: 'text/plain; charset=utf-8', cacheControl: 'public, max-age=86400' },
+  ],
+]);
+
 const CSP_HTML_HOME = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline'",
   "style-src 'self' 'unsafe-inline'",
+  "font-src 'self'",
   "img-src 'self' data:",
   "connect-src 'self'",
   "object-src 'none'",
@@ -207,6 +234,13 @@ export function createRouter(
           'application/manifest+json; charset=utf-8',
           { cacheControl: 'public, max-age=3600', corp: 'cross-origin' }
         );
+      }
+
+      const brandFile = BRAND_FILES.get(path);
+      if (brandFile) {
+        return staticResponse(method, brandFile.body, brandFile.contentType, {
+          cacheControl: brandFile.cacheControl,
+        });
       }
 
       if (path === '/icon.svg') {

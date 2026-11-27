@@ -277,7 +277,7 @@ export function renderCdnDocsPage(): string {
     theme: 'deepSpace',
     darkMode: true,
     metaData: {
-      title: 'CDN Reference — cdn.mikeodnis.dev',
+      title: 'Reference - CDN',
     },
   });
 
@@ -286,8 +286,8 @@ export function renderCdnDocsPage(): string {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>CDN Reference — cdn.mikeodnis.dev</title>
-  <meta name="description" content="Interactive OpenAPI 3.1 reference for cdn.mikeodnis.dev — public R2 assets, HMAC-signed private files, and on-the-fly AVIF/WebP image transforms." />
+  <title>Reference - CDN</title>
+  <meta name="description" content="Interactive OpenAPI 3.1 reference for cdn.mikeodnis.dev: public R2 assets, HMAC-signed private files, and on-the-fly AVIF/WebP image transforms." />
   <meta name="theme-color" content="#0c0c14" />
   <link rel="canonical" href="${CDN_ORIGIN}/docs" />
   <link rel="icon" href="/favicon.ico" sizes="any" />
@@ -295,9 +295,10 @@ export function renderCdnDocsPage(): string {
   <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   <link rel="describedby" type="text/markdown" href="/llms.txt" />
   <link rel="service-desc" type="application/yaml" href="/openapi.yaml" />
+  <meta property="og:site_name" content="CDN - Mike Odnis" />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="${CDN_ORIGIN}/docs" />
-  <meta property="og:title" content="CDN Reference — cdn.mikeodnis.dev" />
+  <meta property="og:title" content="Reference - CDN" />
   <meta property="og:description" content="Interactive OpenAPI 3.1 reference for cdn.mikeodnis.dev." />
   <meta property="og:image" content="${CDN_ORIGIN}/opengraph-image.png" />
   <meta property="og:image:width" content="1200" />
@@ -315,268 +316,13 @@ export function renderCdnDocsPage(): string {
 </html>`;
 }
 
-export function renderCdnHomePage(): string {
-  const jsonLd = JSON.stringify({
-    '@context': 'https://schema.org',
-    '@graph': [
-      {
-        '@type': 'SoftwareApplication',
-        name: 'cdn.mikeodnis.dev',
-        applicationCategory: 'DeveloperApplication',
-        operatingSystem: 'Web, Android, iOS, Linux, macOS, Windows',
-        url: CDN_ORIGIN,
-        description:
-          'Global edge media delivery, on-the-fly AVIF/WebP image transformation, and HMAC-SHA256 signed private asset serving backed by Cloudflare Workers and R2.',
-        author: { '@type': 'Person', name: 'Mike Odnis', url: 'https://mikeodnis.dev' },
-        softwareVersion: '2.0.0',
-        offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
-      },
-      {
-        '@type': 'FAQPage',
-        mainEntity: [
-          {
-            '@type': 'Question',
-            name: 'How are public and private assets served on cdn.mikeodnis.dev?',
-            acceptedAnswer: {
-              '@type': 'Answer',
-              text: 'Public objects under /assets/{key} are served from Cloudflare R2 with 1-year immutable canonical edge caching, ETag validation, and HTTP byte-range support. Private objects under /private/{key} require a constant-time verified HMAC-SHA256 signature (exp and sig) and emit CDN-Cache-Control: no-store, Referrer-Policy: no-referrer, and X-Robots-Tag: noindex, nofollow. Unconfirmed staging/* objects are quarantined (404).',
-            },
-          },
-          {
-            '@type': 'Question',
-            name: 'How do on-the-fly image transforms work?',
-            acceptedAnswer: {
-              '@type': 'Answer',
-              text: 'Prefix any public raster asset path with /img and pass w (0-4096), h (0-4096), q (10-100), and f (webp, avif, jpg, jpeg, png; default webp). Non-assets/* paths return 403 and non-raster files such as SVG/PDF/ZIP return 415.',
-            },
-          },
-          {
-            '@type': 'Question',
-            name: 'How do I upload files to cdn.mikeodnis.dev from mobile or desktop?',
-            acceptedAnswer: {
-              '@type': 'Answer',
-              text: 'Open https://cdn.mikeodnis.dev/upload (installable PWA with client-side magic-byte and SVG XSS pre-flight validation plus Android Web Share Target support) or POST multipart/form-data with a Bearer JWT to https://api.mikeodnis.dev/v1/media/upload.',
-            },
-          },
-        ],
-      },
-    ],
-  });
-
-  return `<!doctype html>
-<html lang="en" class="dark">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>cdn.mikeodnis.dev — Edge Media Delivery &amp; Upload Studio</title>
-  <meta name="description" content="Global edge CDN for public immutable R2 assets, HMAC-SHA256 signed private files, on-the-fly AVIF/WebP image transforms, and the installable Upload Studio PWA." />
-  <meta name="theme-color" content="#0c0c14" />
-  <link rel="canonical" href="${CDN_ORIGIN}/" />
-  <link rel="icon" href="/favicon.ico" sizes="any" />
-  <link rel="icon" type="image/svg+xml" href="/icon.svg" />
-  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-  <link rel="manifest" href="/manifest.webmanifest" />
-  <link rel="describedby" type="text/markdown" href="/llms.txt" title="LLM documentation index" />
-  <link rel="service-desc" type="application/yaml" href="/openapi.yaml" title="OpenAPI 3.1 Specification" />
-  <meta property="og:site_name" content="cdn.mikeodnis.dev" />
-  <meta property="og:type" content="website" />
-  <meta property="og:url" content="${CDN_ORIGIN}/" />
-  <meta property="og:title" content="cdn.mikeodnis.dev — Edge Media Delivery" />
-  <meta property="og:description" content="Cloudflare Workers + R2 edge CDN with immutable caching, HMAC private URLs, imgproxy transforms, and Upload Studio PWA." />
-  <meta property="og:image" content="${CDN_ORIGIN}/opengraph-image.png" />
-  <meta property="og:image:width" content="1200" />
-  <meta property="og:image:height" content="630" />
-  <meta property="og:image:type" content="image/png" />
-  <meta property="og:image:alt" content="cdn.mikeodnis.dev — Edge media delivery, R2 assets, AVIF/WebP transforms, HMAC private URLs" />
-  <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="cdn.mikeodnis.dev — Edge Media Delivery" />
-  <meta name="twitter:description" content="Cloudflare Workers + R2 edge CDN with immutable caching, HMAC private URLs, imgproxy transforms, and Upload Studio PWA." />
-  <meta name="twitter:image" content="${CDN_ORIGIN}/twitter-image.png" />
-  <meta name="twitter:creator" content="@mike_odnis" />
-  <script type="application/ld+json">${jsonLd}</script>
-  <style>${LIVE_CONSOLE_CSS}</style>
-</head>
-<body class="light-glows">
-  ${LIGHT_RAYS_HTML}
-  <div class="shell">
-    <nav class="constellation" aria-label="*.mikeodnis.dev network">
-      <span class="label-mono">*.mikeodnis.dev</span>
-      <div class="constellation-links">
-        <a href="https://mikeodnis.dev">Portfolio</a>
-        <a href="https://links.mikeodnis.dev">Links</a>
-        <a href="https://blog.mikeodnis.dev">Blog</a>
-        <a href="https://news.mikeodnis.dev">News</a>
-        <a href="${API_ORIGIN}">API</a>
-        <span class="here" aria-current="page">CDN</span>
-        <a href="https://status.mikeodnis.dev">Status</a>
-        <a href="https://mikeodnis.dev/sponsor">Sponsor</a>
-      </div>
-    </nav>
-
-    <main class="grid">
-      <section class="tile">
-        <div class="hero">
-          <div>
-            <span class="label-mono">Edge Asset Delivery · Cloudflare Workers + R2</span>
-            <h1>cdn.mikeodnis.dev</h1>
-            <p style="max-width:62ch">
-              Immutable static asset delivery, on-the-fly AVIF/WebP image transforms via <code>imgproxy</code>,
-              and constant-time HMAC-SHA256 signed private objects for the <code>*.mikeodnis.dev</code> platform.
-            </p>
-            <div class="actions">
-              <a class="btn btn-brand" href="/upload">Open Upload Studio (PWA) →</a>
-              <a class="btn" href="/docs">OpenAPI Docs (Scalar)</a>
-              <a class="btn" href="${API_ORIGIN}/docs">Media API Docs</a>
-              <a class="btn" href="/llms.txt">llms.txt</a>
-              <a class="btn" href="/openapi.yaml">openapi.yaml</a>
-            </div>
-          </div>
-          <a id="live-pill" class="pill" href="https://status.mikeodnis.dev" target="_blank" rel="noopener noreferrer" aria-live="polite" style="text-decoration:none">
-            <span class="dot"></span>
-            <span>Edge operational · Status ↗</span>
-          </a>
-        </div>
-      </section>
-
-      <section class="grid grid-3" aria-label="Edge capabilities">
-        <div class="tile">
-          <div class="label-mono">Public Assets</div>
-          <div class="stat-val">300 req / 60s</div>
-          <div class="stat-sub"><code>/assets/*</code> · 1yr canonical immutable cache · ETag + Range</div>
-        </div>
-        <div class="tile">
-          <div class="label-mono">Private Signed</div>
-          <div class="stat-val">120 req / 60s</div>
-          <div class="stat-sub"><code>/private/*</code> · HMAC-SHA256 · <code>no-store</code> CDN · <code>no-referrer</code></div>
-        </div>
-        <div class="tile">
-          <div class="label-mono">Image Transforms</div>
-          <div class="stat-val">60 req / 60s</div>
-          <div class="stat-sub"><code>/img/assets/*</code> · Raster-only (<code>415</code> SVG) · AVIF/WebP</div>
-        </div>
-      </section>
-
-      <section class="tile">
-        <h2>Edge Route Reference</h2>
-        <div style="overflow-x:auto">
-          <table>
-            <thead>
-              <tr>
-                <th>Method</th>
-                <th>Path</th>
-                <th>Auth</th>
-                <th>Behavior &amp; Cache</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td><span class="method">GET</span></td>
-                <td><code>/assets/{key}</code></td>
-                <td>Public</td>
-                <td>Serves R2 object with query-stripped canonical Edge Cache, <code>max-age=31536000, immutable</code>, <code>ETag</code>/<code>304</code>, <code>206 Range</code>, SVG CSP sandbox, and <code>attachment</code> on active/opaque types.</td>
-              </tr>
-              <tr>
-                <td><span class="method">GET</span></td>
-                <td><code>/private/{key}?exp=&amp;sig=</code></td>
-                <td>HMAC-SHA256</td>
-                <td>Constant-time signature validation against <code>/private/{key}:{exp}</code> with <code>CDN-Cache-Control: no-store</code>, <code>Referrer-Policy: no-referrer</code>, and <code>noindex</code>. Returns <code>403</code> if expired/invalid.</td>
-              </tr>
-              <tr>
-                <td><span class="method">GET</span></td>
-                <td><code>/img/assets/{key}?w=&amp;h=&amp;q=&amp;f=</code></td>
-                <td>Public</td>
-                <td>On-the-fly raster resize &amp; WebP/AVIF conversion via imgproxy (default <code>webp</code>). Blocks non-<code>assets/*</code> (<code>403</code>) and non-raster types like SVG/PDF (<code>415</code>).</td>
-              </tr>
-              <tr>
-                <td><span class="method">GET</span></td>
-                <td><code>/upload</code></td>
-                <td>JWT in UI</td>
-                <td>Installable PWA Upload Studio (pre-flight magic-byte/SVG checks, drag/drop, paste, camera, Android Share Target) wired to <code>api.mikeodnis.dev/v1/media</code>.</td>
-              </tr>
-              <tr>
-                <td><span class="method">GET</span></td>
-                <td><code>/health</code> &amp; <code>/health/metrics</code></td>
-                <td>Public</td>
-                <td>Liveness check and native Cloudflare edge rate-limiter counters (<code>Cache-Control: no-store</code>, <code>nosniff</code>).</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section class="grid grid-2">
-        <div class="tile">
-          <h2>Quick Start Examples</h2>
-          <p>Fetch an immutable asset or request a resized WebP image:</p>
-          <pre><code>curl -I ${CDN_ORIGIN}/assets/demo/avatar.png
-
-curl -I "${CDN_ORIGIN}/img/assets/demo/avatar.png?w=640&amp;q=85&amp;f=webp"</code></pre>
-          <p style="margin-top:0.85rem">Upload a file via the authenticated Media API:</p>
-          <pre><code>curl -X POST ${API_ORIGIN}/v1/media/upload \\
-  -H "Authorization: Bearer $JWT" \\
-  -F "file=@./screenshot.png" \\
-  -F "visibility=public"</code></pre>
-        </div>
-
-        <div class="tile">
-          <h2>Machine &amp; LLM Discovery</h2>
-          <p>Structured metadata for AI agents, crawlers, and security researchers:</p>
-          <table>
-            <tbody>
-              <tr><td><a href="/llms.txt"><code>/llms.txt</code></a></td><td>Concise Markdown index for LLMs</td></tr>
-              <tr><td><a href="/llms-full.txt"><code>/llms-full.txt</code></a></td><td>Full route, signing &amp; error spec</td></tr>
-              <tr><td><a href="/openapi.yaml"><code>/openapi.yaml</code></a></td><td>OpenAPI 3.1 contract</td></tr>
-              <tr><td><a href="/.well-known/security.txt"><code>/.well-known/security.txt</code></a></td><td>RFC 9116 security contact</td></tr>
-              <tr><td><a href="/robots.txt"><code>/robots.txt</code></a> &amp; <a href="/sitemap.xml"><code>/sitemap.xml</code></a></td><td>Crawler &amp; sitemap directives</td></tr>
-              <tr><td><a href="/manifest.webmanifest"><code>/manifest.webmanifest</code></a></td><td>Installable PWA + Android Share Target</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section class="tile faq">
-        <h2>Frequently Asked Questions</h2>
-        <details open>
-          <summary>How are uploads, SVGs, and active files protected against XSS?</summary>
-          <p>Uploads are verified with 3-way magic-byte + extension + MIME checks and full-document SVG XSS/XXE scanning (presigned PUTs stay quarantined under non-servable <code>staging/*</code> until confirmed). At the edge, SVG/HTML/XML objects emit <code>Content-Security-Policy: default-src 'none'; sandbox</code>, active/zip/opaque payloads force <code>Content-Disposition: attachment</code>, and every response sets <code>X-Content-Type-Options: nosniff</code>.</p>
-        </details>
-        <details>
-          <summary>How do I install Upload Studio on Android or Desktop?</summary>
-          <p>Open <a href="/upload">/upload</a> in Chrome, Brave, or Safari and tap <strong>Install app</strong> (or <strong>Add to Home Screen</strong>). On Android, it registers in the system Share Sheet so you can share screenshots and photos directly to R2.</p>
-        </details>
-        <details>
-          <summary>What rate-limit headers does the CDN return?</summary>
-          <p>Every asset, private, and transform request enforces per-visitor isolated edge quotas and returns standard IETF <code>RateLimit-Limit</code>, <code>RateLimit-Remaining</code>, <code>RateLimit-Reset</code>, <code>RateLimit-Policy</code>, and <code>Retry-After</code> on HTTP 429.</p>
-        </details>
-      </section>
-    </main>
-
-    <footer>
-      <span>© 2026 Mike Odnis · <a href="https://github.com/WomB0ComB0/cdn">WomB0ComB0/cdn</a> (Apache-2.0)</span>
-      <span id="metrics-foot">Probing /health/metrics…</span>
-    </footer>
-  </div>
-
-  <script>
-    fetch('/health/metrics').then(r => r.json()).then(d => {
-      const el = document.getElementById('metrics-foot');
-      if (el && d && d.status) {
-        const mode = d.rateLimiter?.mode || 'edge';
-        el.textContent = 'Edge status: ' + d.status + ' · limiter: ' + mode;
-      }
-    }).catch(() => {});
-  </script>
-</body>
-</html>`;
-}
-
 export function renderUploadStudioPage(): string {
   return `<!doctype html>
 <html lang="en" class="dark">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Upload Studio — cdn.mikeodnis.dev</title>
+  <title>Upload Studio - CDN</title>
   <meta name="description" content="Installable PWA for uploading, signing, transforming, and managing R2 assets on cdn.mikeodnis.dev from mobile or desktop." />
   <meta name="theme-color" content="#0c0c14" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -586,9 +332,10 @@ export function renderUploadStudioPage(): string {
   <link rel="icon" type="image/svg+xml" href="/icon.svg" />
   <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   <link rel="manifest" href="/manifest.webmanifest" />
+  <meta property="og:site_name" content="CDN - Mike Odnis" />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="${CDN_ORIGIN}/upload" />
-  <meta property="og:title" content="Upload Studio — cdn.mikeodnis.dev" />
+  <meta property="og:title" content="Upload Studio - CDN" />
   <meta property="og:description" content="Installable PWA for uploading, signing, transforming, and managing R2 assets on cdn.mikeodnis.dev." />
   <meta property="og:image" content="${CDN_ORIGIN}/opengraph-image.png" />
   <meta property="og:image:width" content="1200" />
