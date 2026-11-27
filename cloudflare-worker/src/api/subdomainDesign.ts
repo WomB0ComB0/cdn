@@ -1,6 +1,6 @@
 // Generated: the shared subdomain design (spec v1) used verbatim by cdn.mikeodnis.dev and
-// api.mikeodnis.dev. Do not edit by hand or fork per site: change the shared files, then copy them to
-// both sites. The tests pin the SHA-256 of both strings.
+// api.mikeodnis.dev. Do not edit by hand or fork per site: change brand/ (and the api repo's copy),
+// then run "bun run brand". The tests pin the SHA-256 of both strings.
 
 /** subdomain.css v1, byte for byte. Inlined in <style> by renderCdnHomePage(). */
 export const SUBDOMAIN_CSS: string = `/*
@@ -27,7 +27,7 @@ export const SUBDOMAIN_CSS: string = `/*
  * Token names and values are the core's (portfolio src/styles/globals.css, the first :root
  * block) and links.mikeodnis.dev's (app/assets/css/main.css). Values are literals, never
  * color-mix() or relative colours, so every browser that reads oklch() paints the same thing.
- * Markup contract: shared/spec.md.
+ * Markup contract: docs/design/subdomain-design.md.
  */
 
 /* ---------------------------------------------------------------- fonts */
