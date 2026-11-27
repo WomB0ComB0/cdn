@@ -2,7 +2,7 @@
 // wght 100-900, subset to the Latin range mikeodnis.dev serves plus arrows U+2190-2199. Shared with
 // api.mikeodnis.dev (subdomain design spec v1); served at /_brand/fonts/ by router.ts. The version
 // is in each file name, so a new font version needs a new name (the routes cache immutably).
-// Do not edit by hand: regenerate from the shared files; the tests pin their SHA-256.
+// Do not edit by hand: change brand/fonts and run "bun run brand"; the tests pin their SHA-256.
 function decodeBase64(b64: string): Uint8Array {
   const bin = atob(b64);
   const bytes = new Uint8Array(bin.length);

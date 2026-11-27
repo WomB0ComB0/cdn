@@ -16,7 +16,7 @@ const NEW_TAB = '(opens in a new tab)';
 // SHA-256 of the shared design files (subdomain spec v1). api.mikeodnis.dev ships the same bytes,
 // so a change here must land in the shared file first and then on both sites.
 const SHARED_SHA256 = {
-  css: '20608407a18b2d9b89176926ab6a421f959d8a3c3693444b022ad8b2c0d2e545',
+  css: 'bfbe620cd8e9879fcb20468b24b68e41248e99eb6f1c39609437e60b89ba44d2',
   sprite: '874048941c33aa2a176eb1a6dffb2daeef0d443c5b47c0ffbc9901ffc9aa2519',
   geist: '3da227e69973664cb9bb1e8098b6788451fe6567cabb89b9a1c48e8e9938ed76',
   geistMono: 'd9b43cf57f8c3c4b29a43f95648fb090b8872430dff6a7290d7e4aef9a81c88c',
